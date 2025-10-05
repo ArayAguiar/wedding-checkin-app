@@ -40,12 +40,13 @@ O projeto está preparado para deploy no **Vercel** e utiliza **Supabase** como 
    ```bash
    npm install
 2. **Executar em modo de desenvolvimento:**
-
+   ```bash
    npm run dev
 3. **Construir para produção:**
-
+   ```
    npm run build
 4. **Iniciar servidor de produção:**
+   ```
    npm start
 
 
@@ -69,11 +70,11 @@ O projeto está preparado para deploy no **Vercel** e utiliza **Supabase** como 
 ## 🔐 Configuração do Ambiente
 
 Cria um ficheiro .env.local na raiz do projeto:
-bash ```
+```
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
    NEXT_PUBLIC_SITE_URL=http://localhost:3000
-
+```   
 
 ⚠️ Nota: Nunca commits variáveis sensíveis como chaves do Supabase.
 
@@ -81,7 +82,7 @@ bash ```
 ## 🧾 Deploy no Vercel
 
 1. Cria um repositório no GitHub e faz push do código:
-   bash ```
+   ```
       git init
       git add .
       git commit -m "Initial commit"
@@ -90,13 +91,14 @@ bash ```
       git push -u origin main
 
 2. Vai a https://vercel.com
+
  → New Project → Import from GitHub
 
-3. Seleciona o repositório checkin-app
+4. Seleciona o repositório checkin-app
 
-4. Define as variáveis de ambiente (NEXT_PUBLIC_SUPABASE_URL, etc.)
+5. Define as variáveis de ambiente (NEXT_PUBLIC_SUPABASE_URL, etc.)
 
-5. Clica em Deploy
+6. Clica em Deploy
 
 O teu projeto estará disponível em poucos minutos.
 
