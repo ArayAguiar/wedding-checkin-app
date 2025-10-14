@@ -72,7 +72,7 @@ O projeto está preparado para deploy no **Vercel** e utiliza **Supabase** como 
 Cria um ficheiro .env.local na raiz do projeto:
 ```
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   NEXT_PUBLIC_SUPABASE_ANON=your_supabase_anon_key
    NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```   
 
