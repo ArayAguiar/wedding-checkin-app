@@ -125,7 +125,7 @@ npm run lint         # Verifica código com ESLint
 ## Personalização
 
 ### Alterar Dados do Casal
-Editar o ficheiro `/components/WeddingInfo.tsx` e `/components/ElegantWeddingInfo.tsx`
+Editar o ficheiro `/components/WeddingInfo.tsx`
 
 ### Modificar Lista de Convidados
 Atualmente usa dados mock em `/components/GuestLookup.tsx`
