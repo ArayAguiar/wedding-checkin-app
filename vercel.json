@@ -3,11 +3,6 @@
   "version": 2,
   "buildCommand": "npm run build",
   "installCommand": "npm install",
-  "env": {
-    "NEXT_PUBLIC_SUPABASE_URL": "@next_public_supabase_url",
-    "NEXT_PUBLIC_SUPABASE_ANON": "@next_public_supabase_anon_key",
-    "NEXT_PUBLIC_SITE_URL": "@next_public_site_url"
-  },
   "git": {
     "deploymentEnabled": {
       "main": true
