@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supaBaseClient";
-import { Card } from "./ui/card";
-import { Input } from "./ui/input";
-import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
-import { QRScanner } from "./QRScanner";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { QRScanner } from "@/components/QRScanner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,276 +15,302 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "./ui/alert-dialog";
-import { Search, CheckCircle, Users, User, QrCode, Undo2 } from "lucide-react";
+} from "@/components/ui/alert-dialog";
+import { Camera, Search, Check, Undo2, Users, User, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-interface IndividualGuest {
-  id: string;
-  name: string;
-  isCheckedIn: boolean;
-  checkedInAt?: Date;
-}
-
-interface Guest {
-  accessCode: string;
-  mainGuest: IndividualGuest;
-  companion?: IndividualGuest;
-}
-
-interface CheckInProps {
-  onLogout: () => void;
-}
-
-// 🔹 Debounce hook para atrasar execução
-function useDebounce<T>(value: T, delay: number = 400): T {
+function useDebounce<T>(value: T, delay = 500) {
   const [debounced, setDebounced] = useState(value);
-
   useEffect(() => {
     const handler = setTimeout(() => setDebounced(value), delay);
     return () => clearTimeout(handler);
   }, [value, delay]);
-
   return debounced;
 }
 
-const normalizeString = (str: string) =>
-  str.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
+interface Guest {
+  id: string;
+  nome: string;
+  acompanhante?: string;
+  mesa?: string;
+  codigo_acesso: string;
+  check_in: boolean;
+  check_in_acomp?: boolean;
+}
 
-export function CheckIn({ onLogout }: CheckInProps) {
+export function CheckIn() {
+  const [search, setSearch] = useState("");
   const [guests, setGuests] = useState<Guest[]>([]);
-  const [searchCode, setSearchCode] = useState("");
-  const [searchResult, setSearchResult] = useState<Guest | null>(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [scannerActive, setScannerActive] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
-    guestId: string;
+    guestId: string | null;
     guestName: string;
     action: "checkin" | "undo";
-  }>({ open: false, guestId: "", guestName: "", action: "checkin" });
+    companion?: boolean;
+  }>({ open: false, guestId: null, guestName: "", action: "checkin" });
 
-  // 🔹 Debounced input
-  const debouncedSearch = useDebounce(searchCode, 500);
+  const [totalGuests, setTotalGuests] = useState(0);
+  const [checkedIn, setCheckedIn] = useState(0);
 
-  // Buscar convidados
-  useEffect(() => {
-    const fetchGuests = async () => {
-      setLoading(true);
-      const { data, error } = await supabase.from("guests").select("*");
-      if (error) return setError("Erro ao buscar convidados.");
-      if (data?.length) {
-        const formatted: Guest[] = data.map((g: any) => ({
-          accessCode: g.codigo_acesso,
-          mainGuest: {
-            id: g.id,
-            name: g.nome,
-            isCheckedIn: g.check_in,
-            checkedInAt: g.check_in ? new Date() : undefined,
-          },
-          companion: g.acompanhante
-            ? { id: `${g.id}-companion`, name: g.acompanhante, isCheckedIn: false }
-            : undefined,
-        }));
-        setGuests(formatted);
+  const debouncedSearch = useDebounce(search, 500);
+
+  const perPage = 20;
+  const pageRef = useRef(0);
+
+  const fetchGuests = useCallback(
+    async (searchTerm = "", reset = true) => {
+      if (reset) pageRef.current = 0;
+      setIsLoading(true);
+
+      try {
+        let query = supabase
+          .from("guests")
+          .select("*")
+          .order("nome", { ascending: true })
+          .range(pageRef.current * perPage, pageRef.current * perPage + perPage - 1);
+
+        if (searchTerm) {
+          query = query.or(
+            `nome.ilike.%${searchTerm}%,codigo_acesso.ilike.%${searchTerm}%`
+          );
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        if (!data) return;
+
+        setGuests((prev) => (reset ? data : [...prev, ...data]));
+      } catch (err: any) {
+        console.error(err);
+        toast.error("Erro ao buscar convidados");
+      } finally {
+        setIsLoading(false);
       }
-      setLoading(false);
-    };
-    fetchGuests();
+    },
+    []
+  );
+
+  const fetchTotals = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from("guests").select("*");
+      if (error) throw error;
+      if (!data) return;
+
+      setTotalGuests(
+        data.reduce((acc, g) => acc + 1 + (g.acompanhante ? 1 : 0), 0)
+      );
+      setCheckedIn(
+        data.reduce(
+          (acc, g) =>
+            acc +
+            (g.check_in ? 1 : 0) +
+            (g.acompanhante && g.check_in_acomp ? 1 : 0),
+          0
+        )
+      );
+    } catch (err: any) {
+      console.error(err);
+    }
   }, []);
 
-  // 🔹 Efeito para pesquisa automática com debounce
   useEffect(() => {
-    if (debouncedSearch.trim()) {
-      handleSearch(debouncedSearch, false);
-    }
-  }, [debouncedSearch]);
+    fetchGuests();
+    fetchTotals();
+  }, [fetchGuests, fetchTotals]);
 
-  const handleSearch = (term: string, manual = true) => {
-    setError("");
-    setSearchResult(null);
+  useEffect(() => {
+    fetchGuests(debouncedSearch);
+  }, [debouncedSearch, fetchGuests]);
 
-    const normalized = normalizeString(term);
-    if (!normalized) {
-      if (manual) setError("Por favor, introduza um código de acesso ou nome");
-      return;
-    }
+  const handleQRScan = (result: string) => {
+    setSearch(result);
+    fetchGuests(result);
+    setScannerActive(false);
+  };
 
-    const found = guests.find(
-      (g) =>
-        g.accessCode.toLowerCase() === normalized ||
-        normalizeString(g.mainGuest.name).includes(normalized) ||
-        (g.companion && normalizeString(g.companion.name).includes(normalized))
-    );
+  const handleCheckIn = async (guest: Guest, companion = false) => {
+    setConfirmDialog({
+      open: true,
+      guestId: guest.id,
+      guestName: companion ? guest.acompanhante! : guest.nome,
+      action: companion
+        ? guest.check_in_acomp
+          ? "undo"
+          : "checkin"
+        : guest.check_in
+          ? "undo"
+          : "checkin",
+      companion,
+    });
+  };
 
-    if (found) {
-      setSearchResult(found);
-      if (manual) setSearchCode(term);
-    } else {
-      if (manual) setError("Código de acesso ou nome não encontrado");
+  const updateCheckIn = async () => {
+    const { guestId, action, companion } = confirmDialog;
+    if (!guestId) return;
+
+    try {
+      const updateData = companion
+        ? { check_in_acomp: action === "checkin" }
+        : { check_in: action === "checkin" };
+
+      const { error } = await supabase.from("guests").update(updateData).eq("id", guestId);
+      if (error) throw error;
+
+      toast.success(
+        action === "checkin" ? "Check-in realizado!" : "Check-in desfeito!"
+      );
+
+      fetchGuests(debouncedSearch);
+      fetchTotals();
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Erro ao atualizar check-in");
+    } finally {
+      setConfirmDialog({ open: false, guestId: null, guestName: "", action: "checkin" });
     }
   };
 
-  const handleQRScan = (scannedCode: string) => {
-    setShowQRScanner(false);
-    handleSearch(scannedCode);
-  };
-
-  const updateCheckin = async (guestId: string, action: "checkin" | "undo") => {
-    setGuests((prev) =>
-      prev.map((g) => {
-        const clone = { ...g };
-        if (clone.mainGuest.id === guestId) clone.mainGuest.isCheckedIn = action === "checkin";
-        if (clone.companion?.id === guestId) clone.companion.isCheckedIn = action === "checkin";
-        return clone;
-      })
-    );
-
-    if (searchResult) {
-      const clone = { ...searchResult };
-      if (clone.mainGuest.id === guestId) clone.mainGuest.isCheckedIn = action === "checkin";
-      if (clone.companion?.id === guestId) clone.companion.isCheckedIn = action === "checkin";
-      setSearchResult(clone);
-    }
-
-    const mainId = guestId.replace("-companion", "");
-    await supabase.from("guests").update({ check_in: action === "checkin" }).eq("id", mainId);
-
-    toast.success(
-      action === "checkin"
-        ? `✅ ${confirmDialog.guestName} fez check-in!`
-        : `↩️ Check-in de ${confirmDialog.guestName} desfeito!`
-    );
-
-    setConfirmDialog({ open: false, guestId: "", guestName: "", action: "checkin" });
-  };
-
-  const totalGuests = useMemo(
-    () => guests.reduce((acc, g) => acc + (g.companion ? 2 : 1), 0),
-    [guests]
+  // Lazy load more on scroll
+  const observer = useRef<IntersectionObserver>();
+  const lastGuestRef = useCallback(
+    (node: any) => {
+      if (isLoading) return;
+      if (observer.current) observer.current.disconnect();
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+          pageRef.current += 1;
+          fetchGuests(debouncedSearch, false);
+        }
+      });
+      if (node) observer.current.observe(node);
+    },
+    [isLoading, fetchGuests, debouncedSearch]
   );
-  const checkedInTotal = useMemo(
-    () =>
-      guests.reduce(
-        (acc, g) =>
-          acc + (g.mainGuest.isCheckedIn ? 1 : 0) + (g.companion?.isCheckedIn ? 1 : 0),
-        0
-      ),
-    [guests]
-  );
-
-  const GuestRow = ({ guest }: { guest: IndividualGuest }) => (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pl-4">
-      <div className="flex items-center gap-2">
-        <User className="w-3 h-3 text-muted-foreground" />
-        <p className="text-sm">{guest.name}</p>
-      </div>
-      <div className="flex items-center gap-2">
-        {guest.isCheckedIn ? (
-          <>
-            <Badge variant="outline" className="text-green-600 border-green-600 text-xs">
-              <CheckCircle className="w-3 h-3 mr-1" /> Check-in
-            </Badge>
-            <Button size="sm" variant="outline" onClick={() => handleUndoConfirm(guest.id, guest.name)}>
-              <Undo2 className="w-3 h-3" />
-            </Button>
-          </>
-        ) : (
-          <Button size="sm" onClick={() => handleCheckinConfirm(guest.id, guest.name)}>
-            <CheckCircle className="w-3 h-3 mr-1" /> Check-in
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-
-  const handleCheckinConfirm = (guestId: string, guestName: string) =>
-    setConfirmDialog({ open: true, guestId, guestName, action: "checkin" });
-  const handleUndoConfirm = (guestId: string, guestName: string) =>
-    setConfirmDialog({ open: true, guestId, guestName, action: "undo" });
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4 md:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <div>
-          <h2>Sistema de Check-in de Convidados</h2>
-          <p className="text-muted-foreground text-sm">
-            {checkedInTotal} de {totalGuests} convidados fizeram check-in
-          </p>
+    <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-4">
+      {/* Stats cards */}
+      <div className="overflow-x-auto whitespace-nowrap mb-4">
+        <div className="flex gap-3 min-w-max">
+          <Card className="flex-none p-4 text-center">
+            <div className="flex justify-center items-center gap-2">
+              <Check className="w-5 h-5 text-green-500" />
+              <p className="text-xl font-bold">{checkedIn}</p>
+            </div>
+            <p className="text-sm text-muted-foreground">Convidados com Check-in</p>
+          </Card>
+
+          <Card className="flex-none p-4 text-center">
+            <div className="flex justify-center items-center gap-2">
+              <Undo2 className="w-5 h-5 text-red-500" />
+              <p className="text-xl font-bold">{totalGuests - checkedIn}</p>
+            </div>
+            <p className="text-sm text-muted-foreground">Convidados Restantes</p>
+          </Card>
+
+          <Card className="flex-none p-4 text-center">
+            <div className="flex justify-center items-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
+              <p className="text-xl font-bold">{totalGuests}</p>
+            </div>
+            <p className="text-sm text-muted-foreground">Total de Convidados</p>
+          </Card>
         </div>
-        <Button size="sm" variant="outline" onClick={onLogout}>
-          Logout
-        </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:gap-4">
-        <Card className="p-3 md:p-4 text-center">
-          <p className="text-xl md:text-2xl font-bold">{checkedInTotal}</p>
-          <p className="text-xs md:text-sm text-muted-foreground">Convidados com Check-in</p>
-        </Card>
-        <Card className="p-3 md:p-4 text-center">
-          <p className="text-xl md:text-2xl font-bold">{totalGuests - checkedInTotal}</p>
-          <p className="text-xs md:text-sm text-muted-foreground">Convidados Restantes</p>
-        </Card>
-      </div>
 
-      <Card className="p-4 md:p-6">
-        <h3 className="mb-4">Fazer Check-in do Convidado</h3>
-        <div className="flex flex-col sm:flex-row gap-3">
+      {/* Search & QR */}
+      <Card className="p-4 space-y-3">
+        <div className="flex gap-2">
           <Input
-            placeholder="Código de acesso ou nome"
-            value={searchCode}
-            onChange={(e) => setSearchCode(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                handleSearch(searchCode, true); // 🔹 pesquisa imediata
-              }
-            }}
+            placeholder="Pesquisar por nome ou código"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             className="flex-1"
           />
-          <div className="flex gap-2 sm:gap-3">
-            <Button onClick={() => handleSearch(searchCode, true)} className="flex-1 sm:flex-initial">
-              <Search className="w-4 h-4 mr-2" /> Procurar
-            </Button>
-            <Button variant="outline" onClick={() => setShowQRScanner(true)} className="px-3">
-              <QrCode className="w-5 h-5" />
-            </Button>
-          </div>
+          <Button onClick={() => fetchGuests(search)}>
+            <Search className="w-4 h-4" />
+          </Button>
         </div>
-        <p className="text-xs text-muted-foreground mt-1">Código, nome ou QR</p>
-        {error && <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md mt-2">{error}</div>}
-
-        {searchResult && (
-          <div className="p-4 bg-accent rounded-lg space-y-3 mt-4">
-            <GuestRow guest={searchResult.mainGuest} />
-            {searchResult.companion && <GuestRow guest={searchResult.companion} />}
-          </div>
-        )}
+        <Button
+          variant="outline"
+          onClick={() => setScannerActive(true)}
+          disabled={scannerActive}
+          className="w-full mt-2 flex items-center justify-center gap-2"
+        >
+          <Camera className="w-4 h-4" /> Digitalizar Código QR
+        </Button>
       </Card>
 
-      <Card className="p-4 md:p-6">
-        <h3 className="mb-4">Todos os Convidados</h3>
-        <div className="space-y-4">
-          {guests.map((g) => (
-            <div key={g.accessCode} className="p-3 bg-accent/50 rounded-lg space-y-3">
-              <div className="flex items-center gap-3 pb-2 border-b border-border/50">
-                {g.companion ? <Users className="w-4 h-4 text-primary" /> : <User className="w-4 h-4 text-primary" />}
-                <div>
-                  <p className="font-medium text-sm">Convite: {g.accessCode}</p>
-                  <p className="text-xs text-muted-foreground">{g.companion ? "2 convidados" : "1 convidado"}</p>
+      {/* Guest list */}
+      <div className="space-y-3">
+        {guests.map((guest, index) => {
+          const isLast = index === guests.length - 1;
+          return (
+            <Card key={guest.id} className="p-4 space-y-2">
+              {/* Top line: invitation info */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {guest.acompanhante ? <Users className="w-5 h-5" /> : <User className="w-5 h-5" />}
+                  <p className="font-medium">Convite: {guest.codigo_acesso}</p>
                 </div>
               </div>
-              <GuestRow guest={g.mainGuest} />
-              {g.companion && <GuestRow guest={g.companion} />}
-            </div>
-          ))}
-        </div>
-      </Card>
 
-      <QRScanner isActive={showQRScanner} onScan={handleQRScan} onClose={() => setShowQRScanner(false)} />
+              {/* Divider */}
+              <div className="border-t border-muted-foreground/40 my-2" />
 
-      <AlertDialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog((prev) => ({ ...prev, open }))}>
+              {/* Main guest */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-muted-foreground" />
+                  <p>{guest.nome}</p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => handleCheckIn(guest)}
+                  variant={guest.check_in ? "outline" : "default"}
+                >
+                  {guest.check_in ? <Undo2 className="w-4 h-4 mr-1" /> : <Check className="w-4 h-4 mr-1" />}
+                  {guest.check_in ? "Undo" : "Check-in"}
+                </Button>
+              </div>
+
+              {/* Companion, if exists */}
+              {guest.acompanhante && (
+                <div className="flex items-center justify-between gap-2 mt-2">
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                    <p>{guest.acompanhante}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => handleCheckIn(guest, true)}
+                    variant={guest.check_in_acomp ? "outline" : "default"}
+                  >
+                    {guest.check_in_acomp ? <Undo2 className="w-4 h-4 mr-1" /> : <Check className="w-4 h-4 mr-1" />}
+                    {guest.check_in_acomp ? "Undo" : "Check-in"}
+                  </Button>
+                </div>
+              )}
+            </Card>
+
+          );
+        })}
+        {isLoading && <Loader2 className="w-6 h-6 animate-spin mx-auto my-4" />}
+      </div>
+
+      {/* QR Scanner */}
+      <QRScanner onScan={handleQRScan} onClose={() => setScannerActive(false)} isActive={scannerActive} />
+
+      {/* Confirm / Undo Alert */}
+      <AlertDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) =>
+          setConfirmDialog((prev) => ({ ...prev, open }))
+        }
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -299,7 +324,7 @@ export function CheckIn({ onLogout }: CheckInProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => updateCheckin(confirmDialog.guestId, confirmDialog.action)}>
+            <AlertDialogAction onClick={updateCheckIn}>
               {confirmDialog.action === "checkin" ? "Confirmar Check-in" : "Desfazer Check-in"}
             </AlertDialogAction>
           </AlertDialogFooter>

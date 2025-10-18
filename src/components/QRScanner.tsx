@@ -21,9 +21,15 @@ export function QRScanner({ onScan, onClose, isActive }: QRScannerProps) {
   const [manualCode, setManualCode] = useState("");
   const [highlightDetected, setHighlightDetected] = useState(false);
 
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  // ✅ Stop camera helper
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach((t) => t.stop());
+      setStream(null);
+    }
+  };
 
-  // Inicializar câmara
+  // ✅ Initialize camera
   useEffect(() => {
     if (!isActive || !videoRef.current) return;
 
@@ -32,7 +38,7 @@ export function QRScanner({ onScan, onClose, isActive }: QRScannerProps) {
         setIsLoading(true);
         setError("");
 
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        if (!navigator.mediaDevices?.getUserMedia) {
           throw new Error("Acesso à câmara não suportado neste navegador");
         }
 
@@ -52,34 +58,25 @@ export function QRScanner({ onScan, onClose, isActive }: QRScannerProps) {
         setHasCamera(false);
         setIsLoading(false);
         setShowManualInput(true);
-        setError(
-          err?.message ||
-            "Falha ao aceder à câmara. Introduza o código manualmente."
-        );
+        setError(err?.message || "Falha ao aceder à câmara. Introduza o código manualmente.");
       }
     };
 
     initCamera();
-
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-        setStream(null);
-      }
-    };
+    return () => stopCamera();
   }, [isActive]);
 
-  // Scanner QR usando requestAnimationFrame (mais rápido e leve)
+  // ✅ Scan QR Code efficiently
   useEffect(() => {
     if (!isActive || !stream || !videoRef.current) return;
 
     const video = videoRef.current;
     const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d");
     let animationFrameId: number;
 
     const scan = () => {
-      if (!video || !context || video.readyState !== video.HAVE_ENOUGH_DATA) {
+      if (!video || !ctx || video.readyState !== video.HAVE_ENOUGH_DATA) {
         animationFrameId = requestAnimationFrame(scan);
         return;
       }
@@ -87,40 +84,37 @@ export function QRScanner({ onScan, onClose, isActive }: QRScannerProps) {
       const scale = 0.25;
       canvas.width = video.videoWidth * scale;
       canvas.height = video.videoHeight * scale;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-      const code = jsQR(imageData.data, imageData.width, imageData.height);
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imgData.data, imgData.width, imgData.height);
 
       if (code?.data) {
         const result = code.data.trim().toUpperCase();
-        setManualCode(result);
-        onScan(result);
         setHighlightDetected(true);
-
-        // Parar câmara
-        stream.getTracks().forEach((track) => track.stop());
-        setStream(null);
+        stopCamera(); // ✅ Stop camera immediately
+        onScan(result);
       } else {
         animationFrameId = requestAnimationFrame(scan);
       }
     };
 
     scan();
-
     return () => cancelAnimationFrame(animationFrameId);
   }, [stream, isActive, onScan]);
 
+  // ✅ Handle closing properly
   const handleClose = () => {
-    if (stream) stream.getTracks().forEach((track) => track.stop());
-    setStream(null);
+    stopCamera();
     setManualCode("");
     setShowManualInput(false);
     setHighlightDetected(false);
     onClose();
   };
 
+  // ✅ Handle manual submit (also ensures camera stops)
   const handleManualSubmit = () => {
+    stopCamera();
     if (manualCode.trim()) onScan(manualCode.trim());
   };
 
@@ -160,11 +154,17 @@ export function QRScanner({ onScan, onClose, isActive }: QRScannerProps) {
 
           {hasCamera && !error && !showManualInput && (
             <div className="space-y-3">
-              <div className={`relative aspect-square rounded-lg overflow-hidden bg-black min-h-[250px] md:min-h-[300px] border-4 ${highlightDetected ? "border-lime-500" : "border-transparent"} transition-colors duration-300`}>
+              <div
+                className={`relative aspect-square rounded-lg overflow-hidden bg-black min-h-[250px] md:min-h-[300px] border-4 ${
+                  highlightDetected ? "border-lime-500" : "border-transparent"
+                } transition-colors duration-300`}
+              >
                 <video ref={videoRef} className="w-full h-full object-cover" playsInline muted autoPlay />
               </div>
-              <p className="text-xs md:text-sm text-muted-foreground text-center">Posicione o código QR dentro da vista da câmara</p>
-              <Button variant="outline" onClick={() => setShowManualInput(true)} className="w-full">
+              <p className="text-xs md:text-sm text-muted-foreground text-center">
+                Posicione o código QR dentro da vista da câmara
+              </p>
+              <Button variant="outline" onClick={() => { stopCamera(); setShowManualInput(true); }} className="w-full">
                 <Keyboard className="w-4 h-4 mr-2" /> Introduzir código manualmente
               </Button>
             </div>
@@ -188,18 +188,22 @@ export function QRScanner({ onScan, onClose, isActive }: QRScannerProps) {
                   onKeyPress={handleKeyPress}
                   className="uppercase"
                 />
-                <Button onClick={handleManualSubmit} disabled={!manualCode.trim()} className="w-full">Submeter Código</Button>
+                <Button onClick={handleManualSubmit} disabled={!manualCode.trim()} className="w-full">
+                  Submeter Código
+                </Button>
               </div>
 
               {hasCamera && !highlightDetected && (
-                <Button variant="outline" onClick={() => setShowManualInput(false)} className="w-full">
+                <Button variant="outline" onClick={() => { setShowManualInput(false); }} className="w-full">
                   <Camera className="w-4 h-4 mr-2" /> Tentar câmara novamente
                 </Button>
               )}
             </div>
           )}
 
-          <Button onClick={handleClose} variant="outline" className="w-full">Cancelar</Button>
+          <Button onClick={handleClose} variant="outline" className="w-full">
+            Cancelar
+          </Button>
         </div>
       </Card>
     </div>

@@ -38,7 +38,7 @@ export default function HomePage() {
       case "staff-login":
         return <StaffLogin onLogin={handleStaffLogin} />;
       case "staff-checkin":
-        return <CheckIn onLogout={handleStaffLogout} />;
+        return <CheckIn />;
       default:
         return <Welcome />;
     }
