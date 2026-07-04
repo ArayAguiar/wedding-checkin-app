@@ -1,12 +1,12 @@
 'use client'
 
 import { useState } from "react";
-import { GuestLookup } from "@/components/GuestLookup";
-import { StaffLogin } from "@/components/StaffLogin";
-import { CheckIn } from "@/components/CheckIn";
+import { GuestLookup } from "@/components/auth/GuestLookup";
+import { StaffLogin } from "@/components/auth/StaffLoginForm";
+import { CheckIn } from "@/components/dashboard/CheckInInterface";
 import { MobileNavigation } from "@/components/MobileNavigation";
 import { LoadingScreen } from "@/components/LoadingScreen";
-import { Welcome } from "@/components/Welcome";
+import { Welcome } from "@/components/landing/Welcome";
 
 type View = "home" | "guest-lookup" | "staff-login" | "staff-checkin";
 
@@ -32,7 +32,7 @@ export default function HomePage() {
   const renderContent = () => {
     switch (currentView) {
       case "home":
-        return <Welcome />;
+        return <Welcome onNavigate={(view) => setCurrentView(view)} />;
       case "guest-lookup":
         return <GuestLookup />;
       case "staff-login":
@@ -40,13 +40,15 @@ export default function HomePage() {
       case "staff-checkin":
         return <CheckIn />;
       default:
-        return <Welcome />;
+        return <Welcome onNavigate={(view) => setCurrentView(view)} />;
     }
   };
 
   if (isLoading) {
     return <LoadingScreen onLoadingComplete={handleLoadingComplete} />;
   }
+
+  const isHome = currentView === "home";
 
   return (
     <div className="min-h-screen bg-background">
@@ -56,12 +58,8 @@ export default function HomePage() {
         onViewChange={setCurrentView}
       />
 
-      <main className="pt-16">
-        <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4">
-          <div className="w-full max-w-6xl">
-            {renderContent()}
-          </div>
-        </div>
+      <main className={isHome ? "relative" : "relative pt-14"}>
+        {renderContent()}
       </main>
     </div>
   );

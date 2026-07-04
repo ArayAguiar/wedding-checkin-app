@@ -1,11 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { Card } from "./ui/card"
-import { Input } from "./ui/input"
-import { Button } from "./ui/button"
+import { Card } from "../ui/card"
+import { Input } from "../ui/input"
+import { Button } from "../ui/button"
+import { Skeleton } from "../ui/skeleton"
 import { Search, Users, User } from "lucide-react"
-import { QRCodeGenerator } from "./QRCodeGenerator"
+import { QRCodeGenerator } from "../QRCodeGenerator"
 import { supabase } from "@/lib/supaBaseClient"
 
 interface Guest {
@@ -43,8 +44,6 @@ export function GuestLookup() {
       .select("*")
       .ilike("codigo_acesso", accessCode.trim())
 
-    console.log("DEBUG Supabase response:", { data, supaError })
-
     setLoading(false)
 
     if (supaError) {
@@ -60,7 +59,7 @@ export function GuestLookup() {
     setFoundGuest(data[0] as Guest)
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleLookup()
   }
 
@@ -83,7 +82,7 @@ export function GuestLookup() {
             placeholder="Ex: CAS001"
             value={accessCode}
             onChange={(e) => setAccessCode(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyDown}
             className="uppercase"
           />
         </div>
@@ -99,7 +98,30 @@ export function GuestLookup() {
           </div>
         )}
 
-        {foundGuest && (
+        {loading && (
+          <div className="mt-6 p-4 bg-accent rounded-lg space-y-3">
+            <div className="flex items-center gap-2">
+              <Skeleton className="w-5 h-5 rounded-full" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Skeleton className="h-3 w-28" />
+                <Skeleton className="h-4 w-40" />
+              </div>
+              <div className="space-y-1.5">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+              <div className="space-y-1.5">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-4 w-28" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!loading && foundGuest && (
           <div className="mt-6 p-4 bg-accent rounded-lg space-y-3">
             <div className="flex items-center gap-2">
               {foundGuest.acompanhante ? (
@@ -144,7 +166,7 @@ export function GuestLookup() {
         )}
       </Card>
 
-      {foundGuest && (
+      {!loading && foundGuest && (
         <QRCodeGenerator
           accessCode={foundGuest.codigo_acesso}
           guestName={foundGuest.nome}

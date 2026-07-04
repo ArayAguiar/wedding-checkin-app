@@ -5,14 +5,12 @@ import { Button } from "./ui/button";
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
 } from "./ui/sheet";
-import { Heart, Search, Shield, Home, Menu, LogOut } from "lucide-react";
+import { Search, Home, Menu, LogOut, ArrowLeft } from "lucide-react";
 import { useIsMobile } from "./ui/use-mobile";
-import CfLogoFull from "../imports/CfLogoFull";
 import { useSupabaseUser } from "@/hooks/useSupabaseUser";
 import { supabase } from "@/lib/supaBaseClient";
 
@@ -31,161 +29,149 @@ export function MobileNavigation({
   const [isOpen, setIsOpen] = useState(false);
   const isMobile = useIsMobile();
   const { user, loading } = useSupabaseUser();
-
-  // 👨‍💼 neste momento só verificamos se há utilizador; podes depois diferenciar por roles
   const isStaffLoggedIn = !!user;
+  const isHome = currentView === "home";
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     onViewChange("home");
   };
 
-  const navigationItems = [
-    {
-      id: "home" as View,
-      label: "Início",
-      icon: Home,
-      onClick: () => onViewChange("home"),
-    },
-    {
-      id: "guest-lookup" as View,
-      label: "Convidados",
-      icon: Search,
-      onClick: () => onViewChange("guest-lookup"),
-    },
-    {
-      id: isStaffLoggedIn ? "staff-checkin" : "staff-login",
-      label: isStaffLoggedIn ? "Check-in Staff" : "Staff Login",
-      icon: Shield,
-      onClick: () =>
-        onViewChange(isStaffLoggedIn ? "staff-checkin" : "staff-login"),
-    },
-  ];
-
-  const handleNavClick = (onClick: () => void) => {
-    onClick();
-    setIsOpen(false);
+  const handleBackHome = () => {
+    onViewChange("home");
   };
 
-  // enquanto carrega estado de auth
   if (loading) {
     return (
-      <nav className="border-b bg-card">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between">
-          <CfLogoFull className="h-6 w-auto" />
-          <span className="text-sm text-muted-foreground">A carregar...</span>
+      <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-center items-center">
+          <span className="font-serif text-sm tracking-[0.15em] uppercase text-foreground">
+            CINDY <span className="font-display">&</span> FAUSTO
+          </span>
         </div>
-      </nav>
+      </header>
     );
   }
 
+  // HOME: No navigation
+  if (isHome) {
+    return null;
+  }
+
+  // Desktop non-home: minimal header
   if (!isMobile) {
-    // 🖥️ Desktop
     return (
-      <nav className="border-b bg-card">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center justify-center h-8">
-              <CfLogoFull className="h-6 w-auto" />
-            </div>
-            <div className="flex gap-2">
-              {navigationItems.map((item) => {
-                const Icon = item.icon;
-                const isActive =
-                  (item.id === "home" && currentView === "home") ||
-                  (item.id === "guest-lookup" && currentView === "guest-lookup") ||
-                  ((item.id === "staff-login" || item.id === "staff-checkin") &&
-                    (currentView === "staff-login" || currentView === "staff-checkin"));
+      <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+          <button
+            onClick={handleBackHome}
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="font-sans text-xs font-light tracking-wider uppercase">
+              Voltar
+            </span>
+          </button>
 
+          <span className="font-serif text-sm tracking-[0.15em] uppercase text-foreground">
+            CINDY <span className="font-display">&</span> FAUSTO
+          </span>
 
-                return (
-                  <Button
-                    key={item.id}
-                    variant={isActive ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => handleNavClick(item.onClick)}
-                  >
-                    <Icon className="w-4 h-4 mr-2" />
-                    {item.label}
-                  </Button>
-                );
-              })}
-              {isStaffLoggedIn && (
-                <Button variant="ghost" size="sm" onClick={handleSignOut}>
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Sair
-                </Button>
-              )}
-            </div>
+          <div className="flex items-center gap-2">
+            {currentView === "guest-lookup" && (
+              <span className="font-sans text-xs font-light tracking-wider text-muted-foreground">
+                Convidados
+              </span>
+            )}
+            {(currentView === "staff-login" || currentView === "staff-checkin") && (
+              <span className="font-sans text-xs font-light tracking-wider text-muted-foreground">
+                Equipe
+              </span>
+            )}
           </div>
         </div>
-      </nav>
+      </header>
     );
   }
 
-  // 📱 Mobile
+  // Mobile non-home
   return (
-    <nav className="border-b bg-card">
-      <div className="px-4 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 h-8">
-            <CfLogoFull />
-          </div>
+    <>
+      <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
+        <div className="px-4 py-3 flex items-center justify-between">
+          <button
+            onClick={handleBackHome}
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="font-sans text-xs font-light tracking-wider uppercase">
+              Voltar
+            </span>
+          </button>
+
+          <span className="font-serif text-xs tracking-[0.15em] uppercase text-foreground">
+            CINDY <span className="font-display">&</span> FAUSTO
+          </span>
+
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="sm" className="p-2">
-                <Menu className="w-5 h-5" />
-                <span className="sr-only">Alternar menu</span>
+                <Menu className="w-4 h-4" />
+                <span className="sr-only">Menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-80">
-              <SheetHeader>
-                <SheetTitle className="flex items-center gap-2">
-                  <Heart className="w-5 h-5 text-black-500" />
-                  Cindy e Fausto
+            <SheetContent side="right" className="w-72 bg-background">
+              <SheetHeader className="border-b border-border pb-4">
+                <SheetTitle className="font-serif text-lg tracking-[0.1em] uppercase text-foreground">
+                  CINDY <span className="font-display">&</span> FAUSTO
                 </SheetTitle>
-                <SheetDescription className="pt-6">
-                  Navegue pelas diferentes secções do site do casamento
-                </SheetDescription>
               </SheetHeader>
-              <div className="mt-8 space-y-3 px-4 py-6">
-                {navigationItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive =
-                    (item.id === "home" && currentView === "home") ||
-                    (item.id === "guest-lookup" &&
-                      currentView === "guest-lookup") ||
-                    (item.id === "staff-portal" &&
-                      (currentView === "staff-login" ||
-                        currentView === "staff-checkin"));
 
-                  return (
-                    <Button
-                      key={item.id}
-                      variant={isActive ? "default" : "ghost"}
-                      className="w-full justify-start gap-3 h-12"
-                      onClick={() => handleNavClick(item.onClick)}
-                    >
-                      <Icon className="w-5 h-5" />
-                      {item.label}
-                    </Button>
-                  );
-                })}
+              <nav className="mt-6 space-y-1">
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start gap-3 h-11 font-sans text-sm font-light"
+                  onClick={() => { onViewChange("home"); setIsOpen(false); }}
+                >
+                  <Home className="w-4 h-4" />
+                  Início
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start gap-3 h-11 font-sans text-sm font-light"
+                  onClick={() => { onViewChange("guest-lookup"); setIsOpen(false); }}
+                >
+                  <Search className="w-4 h-4" />
+                  Convidados
+                </Button>
+
                 {isStaffLoggedIn && (
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start gap-3 h-12"
-                    onClick={handleSignOut}
-                  >
-                    <LogOut className="w-5 h-5" />
-                    Sair
-                  </Button>
+                  <>
+                    <div className="my-3 border-t border-border" />
+                    <p className="px-3 label mb-2">Equipe</p>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start gap-3 h-11 font-sans text-sm font-light"
+                      onClick={() => { onViewChange("staff-checkin"); setIsOpen(false); }}
+                    >
+                      <Search className="w-4 h-4" />
+                      Check-in
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start gap-3 h-11 font-sans text-sm font-light text-muted-foreground"
+                      onClick={() => { handleSignOut(); setIsOpen(false); }}
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Sair
+                    </Button>
+                  </>
                 )}
-              </div>
+              </nav>
             </SheetContent>
           </Sheet>
         </div>
-      </div>
-    </nav>
+      </header>
+    </>
   );
 }

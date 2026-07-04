@@ -21,7 +21,7 @@ export function QRScanner({ onScan, onClose, isActive }: QRScannerProps) {
   const [manualCode, setManualCode] = useState("");
   const [highlightDetected, setHighlightDetected] = useState(false);
 
-  // ✅ Stop camera helper
+  // Stop camera helper
   const stopCamera = () => {
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
@@ -29,7 +29,7 @@ export function QRScanner({ onScan, onClose, isActive }: QRScannerProps) {
     }
   };
 
-  // ✅ Initialize camera
+  // Initialize camera
   useEffect(() => {
     if (!isActive || !videoRef.current) return;
 
@@ -66,7 +66,7 @@ export function QRScanner({ onScan, onClose, isActive }: QRScannerProps) {
     return () => stopCamera();
   }, [isActive]);
 
-  // ✅ Scan QR Code efficiently
+  // Scan QR Code
   useEffect(() => {
     if (!isActive || !stream || !videoRef.current) return;
 
@@ -92,7 +92,7 @@ export function QRScanner({ onScan, onClose, isActive }: QRScannerProps) {
       if (code?.data) {
         const result = code.data.trim().toUpperCase();
         setHighlightDetected(true);
-        stopCamera(); // ✅ Stop camera immediately
+        stopCamera(); // Stop camera immediately
         onScan(result);
       } else {
         animationFrameId = requestAnimationFrame(scan);
@@ -103,7 +103,7 @@ export function QRScanner({ onScan, onClose, isActive }: QRScannerProps) {
     return () => cancelAnimationFrame(animationFrameId);
   }, [stream, isActive, onScan]);
 
-  // ✅ Handle closing properly
+  // Handle closing properly
   const handleClose = () => {
     stopCamera();
     setManualCode("");
@@ -112,7 +112,7 @@ export function QRScanner({ onScan, onClose, isActive }: QRScannerProps) {
     onClose();
   };
 
-  // ✅ Handle manual submit (also ensures camera stops)
+  // Handle manual submit (also ensures camera stops)
   const handleManualSubmit = () => {
     stopCamera();
     if (manualCode.trim()) onScan(manualCode.trim());

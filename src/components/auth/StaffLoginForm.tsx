@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Card } from "./ui/card";
-import { Input } from "./ui/input";
-import { Button } from "./ui/button";
+import { Card } from "../ui/card";
+import { Input } from "../ui/input";
+import { Button } from "../ui/button";
 import { Lock, LogIn } from "lucide-react";
 import { supabase } from "@/lib/supaBaseClient"; // importa o client supabase
 

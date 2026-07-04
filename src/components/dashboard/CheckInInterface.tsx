@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supaBaseClient";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { QRScanner } from "@/components/QRScanner";
 import {
   AlertDialog,
@@ -55,6 +56,7 @@ export function CheckIn() {
   const [checkedIn, setCheckedIn] = useState(0);
 
   const debouncedSearch = useDebounce(search, 500);
+  const isInitialLoad = isLoading && guests.length === 0;
 
   const perPage = 20;
   const pageRef = useRef(0);
@@ -197,7 +199,11 @@ export function CheckIn() {
           <Card className="flex-none p-4 text-center">
             <div className="flex justify-center items-center gap-2">
               <Check className="w-5 h-5 text-green-500" />
-              <p className="text-xl font-bold">{checkedIn}</p>
+              {isInitialLoad ? (
+                <Skeleton className="h-6 w-8" />
+              ) : (
+                <p className="text-xl font-bold">{checkedIn}</p>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">Convidados com Check-in</p>
           </Card>
@@ -205,7 +211,11 @@ export function CheckIn() {
           <Card className="flex-none p-4 text-center">
             <div className="flex justify-center items-center gap-2">
               <Undo2 className="w-5 h-5 text-red-500" />
-              <p className="text-xl font-bold">{totalGuests - checkedIn}</p>
+              {isInitialLoad ? (
+                <Skeleton className="h-6 w-8" />
+              ) : (
+                <p className="text-xl font-bold">{totalGuests - checkedIn}</p>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">Convidados Restantes</p>
           </Card>
@@ -213,7 +223,11 @@ export function CheckIn() {
           <Card className="flex-none p-4 text-center">
             <div className="flex justify-center items-center gap-2">
               <Users className="w-5 h-5 text-primary" />
-              <p className="text-xl font-bold">{totalGuests}</p>
+              {isInitialLoad ? (
+                <Skeleton className="h-6 w-8" />
+              ) : (
+                <p className="text-xl font-bold">{totalGuests}</p>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">Total de Convidados</p>
           </Card>
@@ -246,7 +260,22 @@ export function CheckIn() {
 
       {/* Guest list */}
       <div className="space-y-3">
-        {guests.map((guest, index) => {
+        {isInitialLoad &&
+          Array.from({ length: 4 }).map((_, i) => (
+            <Card key={`skeleton-${i}`} className="p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Skeleton className="w-5 h-5 rounded-full" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+              <div className="border-t border-muted-foreground/40 my-2" />
+              <div className="flex items-center justify-between gap-2">
+                <Skeleton className="h-4 w-36" />
+                <Skeleton className="h-8 w-24 rounded-md" />
+              </div>
+            </Card>
+          ))}
+
+        {!isInitialLoad && guests.map((guest, index) => {
           const isLast = index === guests.length - 1;
           return (
             <Card key={guest.id} className="p-4 space-y-2">
@@ -298,7 +327,9 @@ export function CheckIn() {
 
           );
         })}
-        {isLoading && <Loader2 className="w-6 h-6 animate-spin mx-auto my-4" />}
+        {isLoading && !isInitialLoad && (
+          <Loader2 className="w-6 h-6 animate-spin mx-auto my-4" />
+        )}
       </div>
 
       {/* QR Scanner */}
