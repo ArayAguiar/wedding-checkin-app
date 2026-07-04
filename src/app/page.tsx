@@ -1,25 +1,15 @@
-'use client'
-
-import { useState } from "react"
-import { LoadingScreen } from "@/components/LoadingScreen"
+// src/app/page.tsx
 import { Welcome } from "@/components/landing/Welcome"
 
+export const metadata = {
+  title: "Casamento Cindy e Fausto",
+  description: "Junte-se a nós para celebrar o nosso dia especial - 18 de Outubro de 2025",
+}
+
 export default function HomePage() {
-  const [isLoading, setIsLoading] = useState(true)
-
-  const handleLoadingComplete = () => {
-    setIsLoading(false)
-  }
-
-  if (isLoading) {
-    return <LoadingScreen onLoadingComplete={handleLoadingComplete} />
-  }
-
   return (
-    <div className="min-h-screen bg-background">
-      <main className="relative">
-        <Welcome />
-      </main>
-    </div>
+    <main className="min-h-screen bg-background">
+      <Welcome />
+    </main>
   )
 }

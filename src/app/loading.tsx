@@ -1,0 +1,47 @@
+// src/app/loading.tsx
+export default function Loading() {
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background">
+      <svg
+        width="80"
+        height="80"
+        viewBox="0 0 512 512"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="text-foreground"
+      >
+        <path
+          d="M244.009 96.5001C257.684 96.5001 271.56 98.4228 285.638 102.268C299.916 105.911 311.781 110.87 321.233 117.144L327.266 159.948H324.551C320.328 142.948 310.574 129.692 295.291 120.179C280.007 110.465 263.013 105.608 244.311 105.608C217.564 105.608 195.242 115.221 177.343 134.448C159.646 153.472 150.798 177.455 150.798 206.397C150.798 235.338 159.948 259.625 178.249 279.256C191.459 293.129 207.54 302.048 226.491 306.015V315.954C212.021 313.818 198.554 309.479 186.091 302.935C167.791 293.221 153.513 279.964 143.257 263.166C133.202 246.368 128.174 227.647 128.174 207.004C128.174 186.158 133.202 167.336 143.257 150.538C153.312 133.74 167.188 120.584 184.885 111.072C202.582 101.357 222.29 96.5001 244.009 96.5001Z"
+          className="monogram-stroke"
+          stroke="currentColor"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="transparent"
+        />
+        <path
+          d="M380.818 329.613C380.818 325.538 379.415 322.074 376.607 319.221C374.001 316.369 370.692 314.84 366.681 314.637H270.431V393.188C270.431 398.486 272.336 403.07 276.146 406.942C279.956 410.61 284.467 412.443 289.681 412.443H293.591V415.5H227.72V412.443H231.63C236.843 412.443 241.255 410.61 244.864 406.942C248.674 403.07 250.679 398.486 250.88 393.188V222.026C250.88 217.136 248.875 213.06 244.864 209.8C241.054 206.336 236.643 204.604 231.63 204.604H228.021L227.72 201.548H315.849C324.472 201.548 332.091 200.834 338.709 199.408C345.326 197.982 349.637 196.861 351.642 196.046V230.584H348.634V225.999C348.634 221.924 347.231 218.46 344.424 215.607C341.616 212.551 338.107 211.023 333.896 211.023H270.431V305.467H366.381C370.391 305.264 373.8 303.735 376.607 300.883C379.415 298.03 380.818 294.464 380.818 290.185V285.906H383.826V334.198H380.818V329.613Z"
+          className="monogram-stroke monogram-stroke-delayed"
+          stroke="currentColor"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="transparent"
+        />
+      </svg>
+
+      <div className="mt-6 space-y-1 text-center opacity-0 animate-fade-in">
+        <p className="text-lg font-serif tracking-[0.1em] uppercase text-foreground">
+          Cindy & Fausto
+        </p>
+        <p className="text-xs font-sans text-muted-foreground tracking-wide">
+          18 de Outubro de 2025
+        </p>
+      </div>
+
+      <div className="mt-6 w-24 h-px bg-border overflow-hidden">
+        <div className="h-full bg-[var(--accent-gold)] animate-progress" />
+      </div>
+    </div>
+  )
+}
