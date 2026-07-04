@@ -1,3 +1,5 @@
+// src\components\QRCodeGenerator.tsx
+
 import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';

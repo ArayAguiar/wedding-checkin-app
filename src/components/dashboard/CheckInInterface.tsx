@@ -1,6 +1,7 @@
+"use client";
+
 // src\components\dashboard\CheckInInterface.tsx
 
-"use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -42,7 +43,6 @@ interface Guest {
 }
 
 export function CheckIn() {
-  const supabase = createClient();
   const [search, setSearch] = useState("");
   const [guests, setGuests] = useState<Guest[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -66,6 +66,8 @@ export function CheckIn() {
 
   const fetchGuests = useCallback(
     async (searchTerm = "", reset = true) => {
+      const supabase = createClient();
+
       if (reset) pageRef.current = 0;
       setIsLoading(true);
 
@@ -98,6 +100,7 @@ export function CheckIn() {
   );
 
   const fetchTotals = useCallback(async () => {
+    const supabase = createClient();
     try {
       const { data, error } = await supabase.from("guests").select("*");
       if (error) throw error;
@@ -154,6 +157,7 @@ export function CheckIn() {
   const updateCheckIn = async () => {
     const { guestId, action, companion } = confirmDialog;
     if (!guestId) return;
+    const supabase = createClient();
 
     try {
       const updateData = companion

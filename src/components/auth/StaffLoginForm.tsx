@@ -1,58 +1,54 @@
-// src\components\auth\StaffLoginForm.tsx
-import { useState } from "react";
-import { Card } from "../ui/card";
-import { Input } from "../ui/input";
-import { Button } from "../ui/button";
-import { Lock, LogIn } from "lucide-react";
-import { createClient } from "@/lib/supabase/client"; // importa o client supabase
+"use client"
 
-interface StaffLoginProps {
-  onLogin: () => void;
-}
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { Card } from "../ui/card"
+import { Input } from "../ui/input"
+import { Button } from "../ui/button"
+import { Lock, LogIn } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 
-export function StaffLogin({ onLogin }: StaffLoginProps) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+export function StaffLogin() {
+  const router = useRouter()
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleLogin = async () => {
-    setError("");
-    setIsSubmitting(true);
+    setError("")
+    setIsSubmitting(true)
 
-    const supabase = createClient();
+    const supabase = createClient()
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: username, // username é o email registado no supabase
+      email: username,
       password,
-    });
+    })
 
     if (error) {
-      setError("Nome de utilizador ou palavra-passe incorretos");
+      setError("Nome de utilizador ou palavra-passe incorretos")
+      setIsSubmitting(false)
     } else if (data?.user) {
-      onLogin();
+      router.push("/checkin")
     }
-
-    setIsSubmitting(false);
-  };
+  }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleLogin();
-  };
+    if (e.key === "Enter") handleLogin()
+  }
 
   return (
     <div className="w-full max-w-sm mx-auto">
-      {/* Header */}
       <div className="text-center space-y-2">
         <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mx-auto">
           <Lock className="w-6 h-6 text-primary" />
         </div>
         <h1 className="text-xl font-semibold">Portal de Funcionários</h1>
         <p className="text-muted-foreground text-sm">
-          Faça login para aceder ao sistema de check-in de convidados
+          Faça login para aceder ao sistema de check-in
         </p>
       </div>
 
-      {/* Card */}
       <Card className="mt-6 p-6 space-y-5 shadow-md max-h-[90vh] overflow-auto">
         <div className="space-y-3">
           <label htmlFor="username" className="text-sm font-medium">
@@ -95,5 +91,5 @@ export function StaffLogin({ onLogin }: StaffLoginProps) {
         </Button>
       </Card>
     </div>
-  );
+  )
 }
