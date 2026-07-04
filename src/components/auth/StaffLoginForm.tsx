@@ -1,9 +1,10 @@
+// src\components\auth\StaffLoginForm.tsx
 import { useState } from "react";
 import { Card } from "../ui/card";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { Lock, LogIn } from "lucide-react";
-import { supabase } from "@/lib/supaBaseClient"; // importa o client supabase
+import { createClient } from "@/lib/supabase/client"; // importa o client supabase
 
 interface StaffLoginProps {
   onLogin: () => void;
@@ -19,7 +20,7 @@ export function StaffLogin({ onLogin }: StaffLoginProps) {
     setError("");
     setIsSubmitting(true);
 
-    // login com supabase
+    const supabase = createClient();
     const { data, error } = await supabase.auth.signInWithPassword({
       email: username, // username é o email registado no supabase
       password,

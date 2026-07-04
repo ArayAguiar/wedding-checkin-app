@@ -1,7 +1,9 @@
+// src\components\dashboard\CheckInInterface.tsx
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { supabase } from "@/lib/supaBaseClient";
+import { createClient } from "@/lib/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -40,6 +42,7 @@ interface Guest {
 }
 
 export function CheckIn() {
+  const supabase = createClient();
   const [search, setSearch] = useState("");
   const [guests, setGuests] = useState<Guest[]>([]);
   const [isLoading, setIsLoading] = useState(false);

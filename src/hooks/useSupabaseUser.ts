@@ -1,15 +1,17 @@
+// src\hooks\useSupabaseUser.ts
 "use client";
 
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supaBaseClient";
+import { createClient } from "@/lib/supabase/client";
+
 
 export function useSupabaseUser() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-
+  
   useEffect(() => {
-    // Pega a sessão inicial
+    const supabase = createClient();
     const getSession = async () => {
       const { data, error } = await supabase.auth.getSession();
       if (!error && data.session) {

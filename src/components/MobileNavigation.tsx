@@ -1,3 +1,4 @@
+// src\components\MobileNavigation.tsx
 "use client";
 
 import { useState } from "react";
@@ -12,7 +13,7 @@ import {
 import { Search, Home, Menu, LogOut, ArrowLeft } from "lucide-react";
 import { useIsMobile } from "./ui/use-mobile";
 import { useSupabaseUser } from "@/hooks/useSupabaseUser";
-import { supabase } from "@/lib/supaBaseClient";
+import { createClient } from "@/lib/supabase/client";
 
 type View = "home" | "guest-lookup" | "staff-login" | "staff-checkin";
 
@@ -31,8 +32,9 @@ export function MobileNavigation({
   const { user, loading } = useSupabaseUser();
   const isStaffLoggedIn = !!user;
   const isHome = currentView === "home";
-
+  
   const handleSignOut = async () => {
+    const supabase = createClient();
     await supabase.auth.signOut();
     onViewChange("home");
   };

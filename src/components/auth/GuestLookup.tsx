@@ -1,3 +1,4 @@
+// src\components\auth\GuestLookup.tsx
 "use client"
 
 import { useState } from "react"
@@ -7,7 +8,7 @@ import { Button } from "../ui/button"
 import { Skeleton } from "../ui/skeleton"
 import { Search, Users, User } from "lucide-react"
 import { QRCodeGenerator } from "../QRCodeGenerator"
-import { supabase } from "@/lib/supaBaseClient"
+import { createClient } from "@/lib/supabase/client"
 
 interface Guest {
   id: string
@@ -27,8 +28,11 @@ export function GuestLookup() {
   const [foundGuest, setFoundGuest] = useState<Guest | null>(null)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  
 
   const handleLookup = async () => {
+    const supabase = createClient()
+    
     setError("")
     setFoundGuest(null)
 
