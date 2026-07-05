@@ -1,14 +1,14 @@
 // src\components\auth\GuestLookup.tsx
 "use client"
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import { Card } from "../ui/card"
 import { Input } from "../ui/input"
 import { Button } from "../ui/button"
 import { Skeleton } from "../ui/skeleton"
 import { Search, Users, User } from "lucide-react"
 import { QRCodeGenerator } from "../QRCodeGenerator"
-import { createClient } from "@/lib/supabase/client"
+import { lookupGuest } from "@/app/guest/actions"
 
 interface Guest {
   id: string
@@ -17,50 +17,27 @@ interface Guest {
   mesa?: string
   codigo_acesso: string
   check_in: boolean
-  created_at: string
-  staff_id?: string
-  event_id?: string
-  host?: string
 }
 
 export function GuestLookup() {
   const [accessCode, setAccessCode] = useState("")
   const [foundGuest, setFoundGuest] = useState<Guest | null>(null)
   const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
+  const [isPending, startTransition] = useTransition()
   
 
-  const handleLookup = async () => {
-    const supabase = createClient()
-    
+  const handleLookup = () => {
     setError("")
     setFoundGuest(null)
 
-    if (!accessCode.trim()) {
-      setError("Por favor, introduza o seu código de acesso")
-      return
-    }
-
-    setLoading(true)
-
-    const { data, error: supaError } = await supabase
-      .from("guests")
-      .select("*")
-      .ilike("codigo_acesso", accessCode.trim())
-
-    setLoading(false)
-
-    if (supaError) {
-      setError("Erro ao procurar o convidado. Tente novamente.")
-      return
-    }
-
-    if (!data || data.length === 0) {
-      setError("Código de acesso não encontrado. Por favor, verifique o código e tente novamente.")
-      return
-    }
-
-    setFoundGuest(data[0] as Guest)
+    startTransition(async () => {
+      const result = await lookupGuest(accessCode)
+      if (result.success && result.guest) {
+        setFoundGuest(result.guest)
+      } else {
+        setError(result.error || "Erro desconhecido")
+      }
+    })
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -91,9 +68,9 @@ export function GuestLookup() {
           />
         </div>
 
-        <Button onClick={handleLookup} className="w-full" disabled={loading}>
+        <Button onClick={handleLookup} className="w-full" disabled={isPending}>
           <Search className="w-4 h-4 mr-2" />
-          {loading ? "A procurar..." : "Procurar"}
+          {isPending ? "A procurar..." : "Procurar"}
         </Button>
 
         {error && (
@@ -102,7 +79,7 @@ export function GuestLookup() {
           </div>
         )}
 
-        {loading && (
+        {isPending && (
           <div className="mt-6 p-4 bg-accent rounded-lg space-y-3">
             <div className="flex items-center gap-2">
               <Skeleton className="w-5 h-5 rounded-full" />
@@ -125,7 +102,7 @@ export function GuestLookup() {
           </div>
         )}
 
-        {!loading && foundGuest && (
+        {!isPending && foundGuest && (
           <div className="mt-6 p-4 bg-accent rounded-lg space-y-3">
             <div className="flex items-center gap-2">
               {foundGuest.acompanhante ? (
@@ -170,7 +147,7 @@ export function GuestLookup() {
         )}
       </Card>
 
-      {!loading && foundGuest && (
+      {!isPending && foundGuest && (
         <QRCodeGenerator
           accessCode={foundGuest.codigo_acesso}
           guestName={foundGuest.nome}
