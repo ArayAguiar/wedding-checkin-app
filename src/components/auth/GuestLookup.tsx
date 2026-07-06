@@ -1,12 +1,10 @@
-// src\components\auth\GuestLookup.tsx
+// src/components/auth/GuestLookup.tsx
 "use client"
 
-import { useState, useTransition } from "react"
-import { Card } from "../ui/card"
-import { Input } from "../ui/input"
-import { Button } from "../ui/button"
-import { Skeleton } from "../ui/skeleton"
-import { Search, Users, User } from "lucide-react"
+import { useState, useTransition, useRef } from "react"
+import { Users, CheckCircle2, Circle, Loader2 } from "lucide-react"
+import { WeddingOtpInput } from "@/components/ui/wedding-otp-input"
+import { WeddingButton } from "@/components/ui/wedding-button"
 import { QRCodeGenerator } from "../QRCodeGenerator"
 import { lookupGuest } from "@/app/guest/actions"
 
@@ -19,139 +17,188 @@ interface Guest {
   check_in: boolean
 }
 
+const errorMessages: Record<string, string> = {
+  "not-found": "Não encontrámos esse código. Verifique se está correto e tente novamente.",
+  "invalid-format": "O código deve ter 6 dígitos numéricos.",
+  "server-error": "Algo correu mal do nosso lado. Por favor, tente novamente.",
+  "empty": "Por favor, introduza o código de acesso.",
+  default: "Não foi possível procurar. Tente novamente."
+}
+
 export function GuestLookup() {
   const [accessCode, setAccessCode] = useState("")
   const [foundGuest, setFoundGuest] = useState<Guest | null>(null)
-  const [error, setError] = useState("")
+  const [errorKey, setErrorKey] = useState<string>("")
   const [isPending, startTransition] = useTransition()
-  
+  const otpContainerRef = useRef<HTMLDivElement>(null)
 
-  const handleLookup = () => {
-    setError("")
+  const performLookup = (code: string) => {
+    if (code.length !== 6) {
+      setErrorKey("empty")
+      setFoundGuest(null)
+      return
+    }
+
+    setErrorKey("")
     setFoundGuest(null)
 
     startTransition(async () => {
-      const result = await lookupGuest(accessCode)
+      const result = await lookupGuest(code)
       if (result.success && result.guest) {
         setFoundGuest(result.guest)
       } else {
-        setError(result.error || "Erro desconhecido")
+        setErrorKey(result.error || "default")
+        const firstInput = otpContainerRef.current?.querySelector("input")
+        firstInput?.focus()
       }
     })
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleLookup()
+  const handleOtpChange = (value: string) => {
+    setAccessCode(value)
+    if (errorKey) setErrorKey("")
+    if (value.length === 6) {
+      setTimeout(() => performLookup(value), 150)
+    }
   }
 
+  const handleLookup = () => {
+    performLookup(accessCode)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && accessCode.length === 6) {
+      handleLookup()
+    }
+  }
+
+  const errorText = errorMessages[errorKey] || errorMessages.default
+
   return (
-    <div className="max-w-md mx-auto space-y-4 md:space-y-6">
-      {/* --- interface UX/UI mantida --- */}
-      <div className="text-center space-y-2">
-        <Search className="w-8 h-8 mx-auto text-primary" />
-        <h2>Informações do Convidado</h2>
-        <p className="text-muted-foreground text-sm">
-          Introduza o seu código de acesso para visualizar os detalhes da reserva
+    <div className="w-full space-y-8">
+      {/* Header */}
+      <div className="text-center space-y-3">
+        <h2 className="text-heading">Informações do Convidado</h2>
+        <p className="text-body max-w-xs mx-auto">
+          Introduza o seu código de acesso de 6 dígitos
         </p>
       </div>
 
-      <Card className="p-4 md:p-6 space-y-4">
-        <div className="space-y-2">
-          <label htmlFor="accessCode">Código de Acesso</label>
-          <Input
-            id="accessCode"
-            placeholder="Ex: CAS001"
+      {/* Form */}
+      <div className="space-y-5" onKeyDown={handleKeyDown}>
+        <div className="space-y-4">
+          <p className="label block text-center">Código de Acesso</p>
+          <WeddingOtpInput
+            ref={otpContainerRef}
             value={accessCode}
-            onChange={(e) => setAccessCode(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="uppercase"
+            onChange={handleOtpChange}
+            length={6}
+            disabled={isPending}
+            error={!!errorKey}
+            ariaDescribedBy={errorKey ? "accessCode-error" : undefined}
+            label="Código de acesso de 6 dígitos"
           />
+          {errorKey && (
+            <p
+              id="accessCode-error"
+              className="text-sm text-muted-foreground text-center"
+              role="alert"
+            >
+              {errorText}
+            </p>
+          )}
         </div>
 
-        <Button onClick={handleLookup} className="w-full" disabled={isPending}>
-          <Search className="w-4 h-4 mr-2" />
-          {isPending ? "A procurar..." : "Procurar"}
-        </Button>
+        <WeddingButton
+          onClick={handleLookup}
+          disabled={isPending || accessCode.length !== 6}
+          className="w-full"
+        >
+          {isPending ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              A procurar...
+            </>
+          ) : (
+            "Procurar"
+          )}
+        </WeddingButton>
+      </div>
 
-        {error && (
-          <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md">
-            {error}
-          </div>
-        )}
-
-        {isPending && (
-          <div className="mt-6 p-4 bg-accent rounded-lg space-y-3">
-            <div className="flex items-center gap-2">
-              <Skeleton className="w-5 h-5 rounded-full" />
-              <Skeleton className="h-4 w-32" />
-            </div>
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Skeleton className="h-3 w-28" />
-                <Skeleton className="h-4 w-40" />
-              </div>
-              <div className="space-y-1.5">
-                <Skeleton className="h-3 w-24" />
-                <Skeleton className="h-4 w-20" />
-              </div>
-              <div className="space-y-1.5">
-                <Skeleton className="h-3 w-16" />
-                <Skeleton className="h-4 w-28" />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {!isPending && foundGuest && (
-          <div className="mt-6 p-4 bg-accent rounded-lg space-y-3">
-            <div className="flex items-center gap-2">
-              {foundGuest.acompanhante ? (
-                <Users className="w-5 h-5 text-primary" />
-              ) : (
-                <User className="w-5 h-5 text-primary" />
-              )}
-              <h3>Detalhes da Reserva</h3>
-            </div>
-
+      {/* Loading */}
+      {isPending && (
+        <div className="space-y-4 pt-2 animate-fade-in">
+          <div className="h-px bg-border w-full" />
+          <div className="space-y-4">
             <div className="space-y-2">
-              <div>
-                <p className="text-sm text-muted-foreground">Nome do Convidado</p>
-                <p>{foundGuest.nome}</p>
-              </div>
-
-              {foundGuest.acompanhante && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Acompanhante</p>
-                  <p>{foundGuest.acompanhante}</p>
-                </div>
-              )}
-
-              <div>
-                <p className="text-sm text-muted-foreground">Código de Acesso</p>
-                <p className="font-mono">{foundGuest.codigo_acesso}</p>
-              </div>
-
-              {foundGuest.mesa && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Mesa</p>
-                  <p>{foundGuest.mesa}</p>
-                </div>
-              )}
-
-              <div>
-                <p className="text-sm text-muted-foreground">Estado</p>
-                <p>{foundGuest.check_in ? "✅ Presente" : "❌ Não fez check-in"}</p>
-              </div>
+              <div className="h-3 w-20 bg-muted rounded animate-pulse" />
+              <div className="h-8 w-48 bg-muted rounded animate-pulse" />
             </div>
+            <div className="space-y-2">
+              <div className="h-3 w-16 bg-muted rounded animate-pulse" />
+              <div className="h-10 w-24 bg-muted rounded animate-pulse" />
+            </div>
+            <div className="h-3 w-32 bg-muted rounded animate-pulse" />
           </div>
-        )}
-      </Card>
+        </div>
+      )}
 
+      {/* Result */}
       {!isPending && foundGuest && (
-        <QRCodeGenerator
-          accessCode={foundGuest.codigo_acesso}
-          guestName={foundGuest.nome}
-        />
+        <div className="space-y-8 pt-6 animate-fade-in">
+          <div className="h-px bg-border w-full" />
+
+          <div className="space-y-8 text-center">
+            {/* Name */}
+            <div className="space-y-2">
+              <p className="label">Nome do Convidado</p>
+              <p className="font-serif text-3xl md:text-4xl text-foreground tracking-wide">
+                {foundGuest.nome}
+              </p>
+            </div>
+
+            {/* Table */}
+            {foundGuest.mesa && (
+              <div className="space-y-2">
+                <p className="label">Mesa</p>
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-muted/50 border border-border">
+                  <span className="font-display text-2xl text-foreground">
+                    {foundGuest.mesa}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Companion — no label */}
+            {foundGuest.acompanhante && (
+              <div className="flex items-center justify-center gap-2 text-sm text-foreground">
+                <Users className="w-4 h-4 text-muted-foreground" strokeWidth={1.5} />
+                <span className="font-sans">{foundGuest.acompanhante}</span>
+              </div>
+            )}
+
+            {/* Status — centered, no code */}
+            <div className="text-center">
+              {foundGuest.check_in ? (
+                <span className="inline-flex items-center gap-1.5 badge badge-default">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Check-in efetuado
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 badge badge-outline">
+                  <Circle className="w-3 h-3" />
+                  Check-in pendente
+                </span>
+              )}
+            </div>
+
+            {/* QR */}
+            <QRCodeGenerator
+              accessCode={foundGuest.codigo_acesso}
+              guestName={foundGuest.nome}
+            />
+          </div>
+        </div>
       )}
     </div>
   )

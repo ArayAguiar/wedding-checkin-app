@@ -1,3 +1,4 @@
+// src/app/guest/actions.ts
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
@@ -11,9 +12,21 @@ interface Guest {
   check_in: boolean
 }
 
-export async function lookupGuest(accessCode: string): Promise<{ success: boolean; guest?: Guest; error?: string }> {
-  if (!accessCode.trim()) {
-    return { success: false, error: "Por favor, introduza o código de acesso" }
+export async function lookupGuest(accessCode: string): Promise<{
+  success: boolean
+  guest?: Guest
+  error?: "not-found" | "invalid-format" | "server-error" | "empty"
+}> {
+  const code = accessCode.trim()
+
+  if (!code) {
+    return { success: false, error: "empty" }
+  }
+
+  // 6 digits only
+  const formatRegex = /^\d{6}$/
+  if (!formatRegex.test(code)) {
+    return { success: false, error: "invalid-format" }
   }
 
   const supabase = await createClient()
@@ -21,15 +34,16 @@ export async function lookupGuest(accessCode: string): Promise<{ success: boolea
   const { data, error } = await supabase
     .from("guests")
     .select("*")
-    .ilike("codigo_acesso", accessCode.trim())
+    .eq("codigo_acesso", code)
     .single()
 
   if (error) {
-    return { success: false, error: "Erro ao procurar o convidado. Tente novamente." }
+    console.error("Supabase error:", error)
+    return { success: false, error: "server-error" }
   }
 
   if (!data) {
-    return { success: false, error: "Código de acesso não encontrado. Por favor, verifique o código e tente novamente." }
+    return { success: false, error: "not-found" }
   }
 
   return { success: true, guest: data as Guest }

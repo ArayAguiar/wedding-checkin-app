@@ -4,11 +4,6 @@ import { cookies } from 'next/headers'
 
 export async function createClient() {
 
-    console.log("SERVER.TS ENV:", {
-        url: process.env.NEXT_PUBLIC_SUPABASE_URL ? "EXISTS" : "MISSING",
-        key: process.env.NEXT_PUBLIC_SUPABASE_ANON ? "EXISTS" : "MISSING",
-        urlValue: process.env.NEXT_PUBLIC_SUPABASE_URL?.slice(0, 10) + "...",
-    })
     const cookieStore = await cookies()
 
     return createServerClient(

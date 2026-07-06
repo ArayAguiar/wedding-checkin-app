@@ -1,106 +1,105 @@
-// src\components\QRCodeGenerator.tsx
+// src/components/QRCodeGenerator.tsx
+"use client"
 
-import { useState, useEffect } from 'react';
-import { Button } from './ui/button';
-import { Card, CardContent } from './ui/card';
-import { Download, QrCode } from 'lucide-react';
+import { useState, useEffect } from "react"
+import { Download, QrCode, X, Maximize2 } from "lucide-react"
+import { WeddingButton } from "./ui/wedding-button"
 
 interface QRCodeGeneratorProps {
-  accessCode: string;
-  guestName?: string;
+  accessCode: string
+  guestName?: string
 }
 
 export function QRCodeGenerator({ accessCode, guestName }: QRCodeGeneratorProps) {
-  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  const generateQRCode = async () => {
-    setIsGenerating(true);
-    try {
-      // Use a QR code API service
-      const qrData = encodeURIComponent(accessCode);
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${qrData}&bgcolor=ffffff&color=000000&format=png&ecc=M`;
-      setQrCodeUrl(qrUrl);
-    } catch (error) {
-      console.error('Erro ao gerar código QR:', error);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const downloadQRCode = () => {
-    if (qrCodeUrl) {
-      const link = document.createElement('a');
-      link.href = qrCodeUrl;
-      link.download = `QR-${accessCode}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-  };
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>("")
+  const [isExpanded, setIsExpanded] = useState(false)
 
   useEffect(() => {
     if (accessCode) {
-      generateQRCode();
+      const qrData = encodeURIComponent(accessCode)
+      setQrCodeUrl(
+        `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${qrData}&bgcolor=ffffff&color=1a1a1a&format=png&ecc=M`
+      )
     }
-  }, [accessCode]);
+  }, [accessCode])
 
-  if (!accessCode) return null;
+  const downloadQRCode = () => {
+    if (!qrCodeUrl) return
+    const link = document.createElement("a")
+    link.href = qrCodeUrl
+    link.download = `QR-${accessCode}.png`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  if (!accessCode) return null
 
   return (
-    <Card className="w-full max-w-sm mx-auto">
-      <CardContent className="p-6 text-center">
-        <div className="space-y-4">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <QrCode className="w-5 h-5" />
-            <h3 className="font-serif">Código QR</h3>
-          </div>
-          
-          {qrCodeUrl ? (
-            <div className="space-y-4">
-              <div className="bg-white p-4 rounded-lg inline-block border">
-                <img 
-                  src={qrCodeUrl} 
-                  alt={`QR Code para ${accessCode}`}
-                  className="w-48 h-48 mx-auto"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  {guestName && `Para: ${guestName}`}
-                </p>
-                <p className="font-mono text-sm bg-muted p-2 rounded">
-                  {accessCode}
-                </p>
-              </div>
-              
-              <Button 
-                onClick={downloadQRCode}
-                variant="outline"
-                className="w-full"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Descarregar QR Code
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-48">
-              {isGenerating ? (
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-                  <p className="text-sm text-muted-foreground">A gerar código QR...</p>
-                </div>
-              ) : (
-                <Button onClick={generateQRCode} variant="outline">
-                  <QrCode className="w-4 h-4 mr-2" />
-                  Gerar Código QR
-                </Button>
+    <>
+      {/* Preview */}
+      <button
+        onClick={() => setIsExpanded(true)}
+        className="group w-full text-center space-y-3 pt-4"
+      >
+        <div className="inline-block p-2 bg-white rounded-lg">
+          <img
+            src={qrCodeUrl}
+            alt="Código QR"
+            className="w-28 h-28 aspect-square object-contain"
+          />
+        </div>
+        <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground group-hover:text-foreground transition-colors">
+          <Maximize2 className="w-3 h-3" />
+          <span className="font-sans">Toque para ampliar</span>
+        </div>
+      </button>
+
+      {/* Expanded */}
+      {isExpanded && (
+        <div
+          className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 animate-fade-in"
+          onClick={() => setIsExpanded(false)}
+        >
+          <button
+            onClick={() => setIsExpanded(false)}
+            className="absolute top-6 right-6 p-2 rounded-full hover:bg-muted transition-colors"
+            aria-label="Fechar"
+          >
+            <X className="w-6 h-6" />
+          </button>
+
+          <div
+            className="space-y-6 text-center max-w-sm w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="space-y-2">
+              <p className="label">Código QR</p>
+              {guestName && (
+                <p className="font-serif text-lg text-foreground">{guestName}</p>
               )}
             </div>
-          )}
+
+            <div className="p-4 bg-white rounded-xl inline-block">
+              <img
+                src={qrCodeUrl}
+                alt="Código QR ampliado"
+                className="w-64 h-64 aspect-square object-contain"
+              />
+            </div>
+
+            <WeddingButton
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={downloadQRCode}
+            >
+              <Download className="w-4 h-4" />
+              Descarregar QR Code
+            </WeddingButton>
+          </div>
         </div>
-      </CardContent>
-    </Card>
-  );
+      )}
+    </>
+  )
 }
