@@ -1,132 +1,106 @@
-# 🎉 Website de Casamento - Cindy e Fausto
+# Cindy & Fausto — Wedding Portal
 
-Este é um **website de casamento** desenvolvido em **Next.js** com **React** e **TypeScript**, que inclui funcionalidades para **convidados** e **staff**.  
-O projeto está preparado para deploy no **Vercel** e utiliza **Supabase** como backend para gestão de convidados e check-ins.
+A full-stack wedding guest management portal built with Next.js 14, Supabase, and Tailwind CSS. Features OTP-based guest authentication, QR code check-in, and a staff dashboard for event operations.
 
----
-
-## 🌟 Funcionalidades
-
-### 👥 Para Convidados
-- **Página Principal:** Informações detalhadas sobre o casamento com design elegante.  
-- **Consulta de Convidados:** Sistema onde os convidados podem inserir o código de acesso para ver as suas informações.  
-- **Geração de QR Codes:** Cada convidado pode gerar o seu código QR exclusivo para o check-in.
-
-### 🎟️ Para Staff
-- **Portal de Staff:** Login seguro para membros da equipa.  
-- **Interface de Check-in:** Sistema de check-in em tempo real para o dia do casamento.  
-- **Busca Avançada:** Pesquisa por código de acesso ou nome (incluindo acompanhantes).  
-- **Scanner QR:** Digitalização de códigos QR com gestão de erros e feedback visual.  
-- **Gestão Multi-Staff:** Suporte para múltiplos funcionários em simultâneo.
+**Live Demo:** [wedding-checkin.vercel.app](https://wedding-checkin.vercel.app)
 
 ---
 
-## 🛠️ Tecnologias Utilizadas
+## Overview
 
-- **Next.js 14** – Framework React para produção  
-- **TypeScript** – Tipagem estática  
-- **Tailwind CSS** – Framework de CSS utilitário  
-- **Radix UI / shadcn/ui** – Componentes de interface acessíveis  
-- **Lucide React** – Ícones modernos  
-- **React Hook Form** – Gestão de formulários  
-- **Zod** – Validação de esquemas  
-- **Supabase** – Base de dados e autenticação  
+This project was built for a real wedding in Luanda, Angola. The couple needed a way for guests to look up their table assignments and for staff to check guests in at the venue using QR codes. The design prioritizes speed and clarity on mobile devices, since staff would be using phones in a busy event space.
 
 ---
 
-## ⚙️ Instalação e Configuração
+## Features
 
-1. **Instalar dependências:**
-   ```bash
-   npm install
-2. **Executar em modo de desenvolvimento:**
-   ```bash
-   npm run dev
-3. **Construir para produção:**
-   ```
-   npm run build
-4. **Iniciar servidor de produção:**
-   ```
-   npm start
+- **Guest Lookup** — 6-digit OTP code entry to view table assignment and companion info
+- **QR Check-in** — Camera-based QR scanning with jsQR, 0.25 scale for performance, manual fallback
+- **Staff Dashboard** — Password auth, guest list with search, individual and companion check-in
+- **Design System** — Custom tokens in globals.css, Cinzel + Josefin Sans typography,
 
+---
 
-## 🧭 Estrutura do Projeto
+## Tech Stack
 
-├── app/                    # App Router do Next.js
-│   ├── layout.tsx          # Layout principal
-│   └── page.tsx            # Página inicial
-├── components/             # Componentes React
-│   ├── ui/                 # Componentes de interface (shadcn/ui)
-│   ├── WeddingInfo.tsx     # Informações do casamento
-│   ├── GuestLookup.tsx     # Consulta de convidados
-│   ├── StaffLogin.tsx      # Login do staff
-│   ├── CheckinInterface.tsx# Interface de check-in
-│   └── ...
-├── lib/                    # Utilitários e configuração Supabase
-├── styles/                 # Estilos globais e Tailwind
-└── public/                 # Assets e ícones públicos
+- **Next.js 14** (App Router, React Server Components)
+- **TypeScript**
+- **Tailwind CSS v4**
+- **shadcn/ui** (Button, Input, Card, Dialog, Sheet, Sonner)
+- **Supabase** (PostgreSQL, Auth)
+- **jsQR** (QR code detection)
 
+---
 
-## 🔐 Configuração do Ambiente
+## Project Structure
 
-Cria um ficheiro .env.local na raiz do projeto:
 ```
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-   NEXT_PUBLIC_SUPABASE_ANON=your_supabase_anon_key
-   NEXT_PUBLIC_SITE_URL=http://localhost:3000
-```   
+src/
+├── app/                    # Next.js App Router
+│   ├── page.tsx            # Landing page
+│   ├── guest/              # Guest lookup + OTP
+│   ├── staff/              # Staff login
+│   ├── checkin/            # Check-in dashboard
+│   ├── layout.tsx          # Root layout with fonts + Toaster
+│   └── globals.css         # Design system tokens
+├── components/
+│   ├── landing/Welcome.tsx
+│   ├── auth/GuestLookup.tsx
+│   ├── auth/StaffLogin.tsx
+│   ├── dashboard/CheckInInterface.tsx
+│   └── QRScanner.tsx
+├── lib/supabase/           # Browser + server client factories
+└── types/                  # Shared TypeScript interfaces
+```
 
-⚠️ Nota: Nunca commits variáveis sensíveis como chaves do Supabase.
+---
 
+## Architecture Decisions
 
-## 🧾 Deploy no Vercel
+**Server Components for initial data fetch.** The check-in page fetches guest data server-side so staff see content immediately on spotty venue WiFi.
 
-1. Cria um repositório no GitHub e faz push do código:
-   ```
-      git init
-      git add .
-      git commit -m "Initial commit"
-      git branch -M main
-      git remote add origin https://github.com/seu-usuario/checkin-app.git
-      git push -u origin main
+**Supabase SSR with factory pattern.** `createClient()` from `@supabase/ssr` returns a fresh browser client per component. A singleton would leak sessions across requests.
 
-2. Vai a https://vercel.com
+**Single-tap check-in.** No confirmation dialogs. Speed is the primary UX metric for event staff. Undo is the safety net, not the confirm. This reduces 100 check-ins from 200 taps to 100 taps.
 
- → New Project → Import from GitHub
+**Custom SVG botanical accents.** No stock photos. Privacy for the couple, and it demonstrates asset creation beyond consuming imagery.
 
-4. Seleciona o repositório checkin-app
+**Anti-slop frontend discipline.** 150ms transitions only. No bounce, no parallax, no decorative animation. Transform and opacity only. One accent color. No green check icons. No em-dashes.
 
-5. Define as variáveis de ambiente (NEXT_PUBLIC_SUPABASE_URL, etc.)
+---
 
-6. Clica em Deploy
+## What I Learned
 
-O teu projeto estará disponível em poucos minutos.
+**State management in async effects.** The QR scanner bug was a stale closure from an unstable `onScan` callback passed to a child `useEffect`. Wrapping it in `useCallback` with empty deps fixed duplicate scan loops.
 
-## 🧠 Funcionalidades de Segurança
+**Conditional render vs. prop-driven visibility.** Wrapping the scanner in a Sheet kept the component mounted with an active camera stream. Switching to `{isActive && <QRScanner />}` ensures full unmount and cleanup.
 
--  Convidados só podem ver as suas próprias informações
+**Design system discipline.** Defining tokens is easy. Using them consistently across every component is hard. This project taught me to audit every file for hardcoded values before shipping.
 
--  Login seguro para o staff
+---
 
--  Códigos QR e de acesso únicos
+## Local Setup
 
--  Validação e sanitização de inputs
+```bash
+git clone https://github.com/ArayAguiar/wedding-checkin-app.git
+cd wedding-checkin-app
+npm install
 
-## 📱 Responsividade
-O website é totalmente responsivo e otimizado para:
+# Create .env.local:
+# NEXT_PUBLIC_SUPABASE_URL=your_url
+# NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key
 
--  Desktop
+npm run dev
+```
 
--  Tablet
+---
 
--  Mobile (Android & iOS)
+## Built By
 
-## 📅 Detalhes do Casamento
-Data: 18 de Outubro de 2025
-Locais:
-   -  Cerimónia Civil: Salão de Festas Pingo D'Ouro (10:00)
+Aray Aguiar — Frontend developer, aiming for full-stack.
 
-   -  Cerimónia Religiosa: Igreja Metodista Unida John Wesley (16:00)
+---
 
-   -  Recepção: Salão de Festas Pingo D'Ouro (19:30)
+## License
 
+MIT
