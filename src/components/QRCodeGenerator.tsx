@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react"
 import { Download, QrCode, X, Maximize2 } from "lucide-react"
-import { WeddingButton } from "./ui/wedding-button"
+import { Button } from "./ui/button"
 
 interface QRCodeGeneratorProps {
   accessCode: string
@@ -88,7 +88,7 @@ export function QRCodeGenerator({ accessCode, guestName }: QRCodeGeneratorProps)
               />
             </div>
 
-            <WeddingButton
+            <Button
               variant="outline"
               size="sm"
               className="w-full"
@@ -96,7 +96,7 @@ export function QRCodeGenerator({ accessCode, guestName }: QRCodeGeneratorProps)
             >
               <Download className="w-4 h-4" />
               Descarregar QR Code
-            </WeddingButton>
+            </Button>
           </div>
         </div>
       )}

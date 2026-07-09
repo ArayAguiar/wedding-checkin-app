@@ -1,10 +1,10 @@
 // src/components/auth/GuestLookup.tsx
 "use client"
 
-import { useState, useTransition, useRef } from "react"
+import { useState, useTransition } from "react"
 import { Users, CheckCircle2, Circle, Loader2 } from "lucide-react"
-import { WeddingOtpInput } from "@/components/ui/wedding-otp-input"
-import { WeddingButton } from "@/components/ui/wedding-button"
+import { Button } from "@/components/ui/button"
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { QRCodeGenerator } from "../QRCodeGenerator"
 import { lookupGuest } from "@/app/guest/actions"
 
@@ -30,7 +30,6 @@ export function GuestLookup() {
   const [foundGuest, setFoundGuest] = useState<Guest | null>(null)
   const [errorKey, setErrorKey] = useState<string>("")
   const [isPending, startTransition] = useTransition()
-  const otpContainerRef = useRef<HTMLDivElement>(null)
 
   const performLookup = (code: string) => {
     if (code.length !== 6) {
@@ -48,17 +47,16 @@ export function GuestLookup() {
         setFoundGuest(result.guest)
       } else {
         setErrorKey(result.error || "default")
-        const firstInput = otpContainerRef.current?.querySelector("input")
-        firstInput?.focus()
       }
     })
   }
 
   const handleOtpChange = (value: string) => {
-    setAccessCode(value)
+    const digits = value.replace(/\D/g, "").slice(0, 6)
+    setAccessCode(digits)
     if (errorKey) setErrorKey("")
-    if (value.length === 6) {
-      setTimeout(() => performLookup(value), 150)
+    if (digits.length === 6) {
+      setTimeout(() => performLookup(digits), 150)
     }
   }
 
@@ -88,16 +86,26 @@ export function GuestLookup() {
       <div className="space-y-5" onKeyDown={handleKeyDown}>
         <div className="space-y-4">
           <p className="label block text-center">Código de Acesso</p>
-          <WeddingOtpInput
-            ref={otpContainerRef}
+          <InputOTP
+            maxLength={6}
             value={accessCode}
             onChange={handleOtpChange}
-            length={6}
             disabled={isPending}
-            error={!!errorKey}
-            ariaDescribedBy={errorKey ? "accessCode-error" : undefined}
-            label="Código de acesso de 6 dígitos"
-          />
+            aria-label="Código de acesso de 6 dígitos"
+            aria-describedby={errorKey ? "accessCode-error" : undefined}
+            aria-invalid={errorKey ? "true" : "false"}
+            containerClassName="justify-center"
+          >
+            <InputOTPGroup>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <InputOTPSlot
+                  key={i}
+                  index={i}
+                  className={errorKey ? "border-destructive" : undefined}
+                />
+              ))}
+            </InputOTPGroup>
+          </InputOTP>
           {errorKey && (
             <p
               id="accessCode-error"
@@ -109,7 +117,7 @@ export function GuestLookup() {
           )}
         </div>
 
-        <WeddingButton
+        <Button
           onClick={handleLookup}
           disabled={isPending || accessCode.length !== 6}
           className="w-full"
@@ -122,7 +130,7 @@ export function GuestLookup() {
           ) : (
             "Procurar"
           )}
-        </WeddingButton>
+        </Button>
       </div>
 
       {/* Loading */}
@@ -169,7 +177,7 @@ export function GuestLookup() {
               </div>
             )}
 
-            {/* Companion — no label */}
+            {/* Companion */}
             {foundGuest.acompanhante && (
               <div className="flex items-center justify-center gap-2 text-sm text-foreground">
                 <Users className="w-4 h-4 text-muted-foreground" strokeWidth={1.5} />
@@ -177,7 +185,7 @@ export function GuestLookup() {
               </div>
             )}
 
-            {/* Status — centered, no code */}
+            {/* Status */}
             <div className="text-center">
               {foundGuest.check_in ? (
                 <span className="inline-flex items-center gap-1.5 badge badge-default">

@@ -1,167 +1,193 @@
-// src/components/landing/Welcome.tsx
 import Link from "next/link"
-import { MapPin, Calendar, ArrowRight } from "lucide-react"
+import { MapPin, ArrowRight } from "lucide-react"
+
+// Custom SVG botanical — sage green, minimal, matches design system
+function BotanicalAccent({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 200 200"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-hidden="true"
+    >
+      <path
+        d="M100 180C100 180 100 140 100 120C100 100 80 80 60 70C40 60 30 50 30 50"
+        stroke="currentColor"
+        strokeWidth="1"
+        strokeLinecap="round"
+      />
+      <path
+        d="M100 120C100 120 120 100 140 90C160 80 170 70 170 70"
+        stroke="currentColor"
+        strokeWidth="1"
+        strokeLinecap="round"
+      />
+      <path
+        d="M100 140C100 140 85 125 75 115C65 105 60 95 60 95"
+        stroke="currentColor"
+        strokeWidth="1"
+        strokeLinecap="round"
+      />
+      <path
+        d="M100 100C100 100 115 85 125 75C135 65 145 60 145 60"
+        stroke="currentColor"
+        strokeWidth="1"
+        strokeLinecap="round"
+      />
+      {/* Leaves */}
+      <ellipse cx="55" cy="65" rx="8" ry="4" transform="rotate(-30 55 65)" fill="currentColor" opacity="0.3" />
+      <ellipse cx="145" cy="85" rx="8" ry="4" transform="rotate(30 145 85)" fill="currentColor" opacity="0.3" />
+      <ellipse cx="70" cy="110" rx="6" ry="3" transform="rotate(-20 70 110)" fill="currentColor" opacity="0.25" />
+      <ellipse cx="130" cy="70" rx="6" ry="3" transform="rotate(20 130 70)" fill="currentColor" opacity="0.25" />
+    </svg>
+  )
+}
 
 export function Welcome() {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Subtle botanical accent — top right, low opacity */}
+      <BotanicalAccent className="absolute -top-10 -right-10 w-48 h-48 sm:w-64 sm:h-64 text-accent/10 pointer-events-none" />
+      
+      {/* Subtle botanical accent — bottom left, low opacity */}
+      <BotanicalAccent className="absolute -bottom-10 -left-10 w-32 h-32 sm:w-48 sm:h-48 text-accent/10 pointer-events-none rotate-180" />
+
       {/* ═══════════════════════════════════════════
-          HERO — Full viewport, centered, no photo
+          HERO — Names, date, invitation
           ═══════════════════════════════════════════ */}
-      <section className="min-h-screen flex flex-col items-center justify-center px-6 text-center relative overflow-hidden">
-        {/* Subtle background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-b from-background via-background to-accent/5 pointer-events-none" />
+      <section className="min-h-[80vh] flex flex-col items-center justify-center px-6 py-16 sm:py-20 text-center relative">
+        {/* Date — label style */}
+        <p className="label mb-6 sm:mb-8">
+          18 de Outubro de 2025 · Luanda, Angola
+        </p>
 
-        <div className="relative z-10 max-w-2xl mx-auto">
-          {/* Eyebrow — single, restrained */}
-          <p className="label mb-8 tracking-[0.2em]">
-            18 de Outubro de 2025 &middot; Luanda, Angola
+        {/* Names — font-serif (Cinzel), ampersand — font-display (Cinzel Decorative) */}
+        <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl tracking-[0.08em] text-foreground leading-[0.9]">
+          CINDY
+          <span className="block font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl my-2 sm:my-3 text-accent">
+            &
+          </span>
+          FAUSTO
+        </h1>
+
+        {/* Divider */}
+        <div className="w-12 h-px bg-border mx-auto my-8 sm:my-10" />
+
+        {/* Invitation */}
+        <p className="text-body max-w-sm mx-auto mb-10 sm:mb-12 text-sm sm:text-base">
+          Com a bênção de Deus e das nossas famílias, convidamo-lo a celebrar connosco.
+        </p>
+
+        {/* CTA */}
+        <Link
+          href="#schedule"
+          className="inline-flex items-center gap-2 h-11 sm:h-12 px-6 sm:px-8 rounded-full bg-foreground text-background font-serif text-[0.625rem] sm:text-[0.6875rem] tracking-[0.15em] uppercase hover:bg-foreground/90 transition-colors duration-150"
+        >
+          Programação
+          <ArrowRight className="w-4 h-4" />
+        </Link>
+      </section>
+
+      {/* ═══════════════════════════════════════════
+          STORY — One paragraph, human
+          ═══════════════════════════════════════════ */}
+      <section className="py-16 sm:py-20 md:py-24 px-6 bg-secondary/30 relative">
+        <div className="max-w-xl mx-auto text-center px-2 sm:px-0">
+          <p className="label mb-6 sm:mb-8">A Nossa História</p>
+          <p className="font-serif text-base sm:text-lg md:text-xl text-foreground leading-relaxed tracking-wide">
+            Conhecemo-nos em Luanda, numa tarde de chuva que nenhum de nós esperava. 
+            Desde então, cada dia tem sido uma aventura que queremos continuar a partilhar. 
+            Agora, queremos que seja testemunha do nosso próximo capítulo.
           </p>
-
-          {/* Names — display typography */}
-          <h1 className="text-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl leading-[0.9] mb-8">
-            CINDY
-            <span className="block font-display text-4xl sm:text-5xl md:text-6xl my-2 text-accent-gold">
-              &
-            </span>
-            FAUSTO
-          </h1>
-
-          {/* Divider */}
-          <div className="w-16 h-px bg-border mx-auto mb-8" />
-
-          {/* Subtext — concise, ≤20 words */}
-          <p className="text-body text-base sm:text-lg max-w-md mx-auto mb-12">
-            Com a bênção de Deus e de suas famílias, convidam-no a celebrar este dia único.
-          </p>
-
-          {/* Single CTA */}
-          <a
-            href="#schedule"
-            className="btn btn-primary inline-flex items-center gap-2 group"
-          >
-            Programação
-            <ArrowRight className="w-4 h-4 transition-transform duration-150 group-hover:translate-x-1" />
-          </a>
-        </div>
-
-        {/* Scroll indicator — subtle, functional */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
-          <div className="w-px h-8 bg-border animate-pulse" />
         </div>
       </section>
 
       {/* ═══════════════════════════════════════════
-          SCHEDULE — Editorial timeline
+          SCHEDULE — Simple list
           ═══════════════════════════════════════════ */}
-      <section id="schedule" className="py-24 md:py-32 px-6 md:px-12 lg:px-20 bg-accent/5">
-        <div className="max-w-3xl mx-auto">
-          {/* Section header */}
-          <div className="mb-16 md:mb-20 text-center">
+      <section id="schedule" className="py-16 sm:py-20 md:py-24 px-6 relative">
+        <div className="max-w-lg mx-auto">
+          <div className="text-center mb-10 sm:mb-12">
             <p className="label mb-3">Cronograma</p>
-            <h2 className="text-heading text-3xl sm:text-4xl">O Nosso Dia</h2>
+            <h2 className="font-serif text-xl sm:text-2xl md:text-3xl tracking-[0.08em] text-foreground uppercase">
+              O Nosso Dia
+            </h2>
           </div>
 
-          {/* Events — vertical timeline */}
-          <div className="relative">
-            {/* Timeline line */}
-            <div className="absolute left-4 md:left-1/2 md:-translate-x-px top-0 bottom-0 w-px bg-border" />
-
+          <div className="space-y-6 sm:space-y-8">
             {/* Event 1 */}
-            <div className="relative mb-12 md:mb-16">
-              <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-8">
-                {/* Time + dot */}
-                <div className="flex items-center gap-4 md:w-1/2 md:justify-end md:pr-8">
-                  <div className="w-8 h-8 rounded-full bg-background border-2 border-accent-gold flex items-center justify-center shrink-0 relative z-10">
-                    <span className="w-2 h-2 rounded-full bg-accent-gold" />
-                  </div>
-                  <span className="font-serif text-2xl tracking-wider text-foreground md:text-right">
-                    10:30
-                  </span>
-                </div>
-
-                {/* Content */}
-                <div className="md:w-1/2 md:pl-8">
-                  <h3 className="font-serif text-lg tracking-wide text-foreground mb-2">
-                    Cerimónia Civil
-                  </h3>
-                  <p className="text-body text-sm mb-3">
-                    Celebração oficial do matrimónio perante as leis da República de Angola.
-                  </p>
-                  <a
-                    href="https://www.google.com/maps/place/Sal%C3%A3o+de+Festas+Pingo+Douro/@-8.9802384,13.1939844,17z/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 font-sans text-xs font-light tracking-wider text-muted-foreground hover:text-accent-gold"
-                  >
-                    <MapPin className="w-3.5 h-3.5" />
-                    Salão Pingo D'Ouro
-                  </a>
-                </div>
+            <div className="flex gap-3 sm:gap-4 items-start">
+              <span className="font-serif text-lg sm:text-xl tracking-wider text-foreground w-14 sm:w-16 shrink-0 text-right">
+                10:30
+              </span>
+              <div className="h-px w-4 sm:w-6 bg-border mt-2.5 sm:mt-3 shrink-0" />
+              <div className="min-w-0">
+                <h3 className="font-serif text-sm sm:text-base tracking-wide text-foreground mb-1">
+                  Cerimónia Civil
+                </h3>
+                <p className="text-body text-xs sm:text-sm mb-2">
+                  Celebração oficial do matrimónio perante as leis da República de Angola.
+                </p>
+                <a
+                  href="https://www.google.com/maps/place/Sal%C3%A3o+de+Festas+Pingo+Douro/@-8.9802384,13.1939844,17z/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 label text-muted-foreground hover:text-accent transition-colors duration-150"
+                >
+                  <MapPin className="w-3 h-3" />
+                  Salão Pingo D\'Ouro
+                </a>
               </div>
             </div>
 
             {/* Event 2 */}
-            <div className="relative mb-12 md:mb-16">
-              <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-8">
-                <div className="flex items-center gap-4 md:w-1/2 md:justify-end md:pr-8">
-                  <div className="w-8 h-8 rounded-full bg-background border-2 border-accent-gold flex items-center justify-center shrink-0 relative z-10">
-                    <span className="w-2 h-2 rounded-full bg-accent-gold" />
-                  </div>
-                  <span className="font-serif text-2xl tracking-wider text-foreground md:text-right">
-                    16:00
-                  </span>
-                </div>
-
-                <div className="md:w-1/2 md:pl-8">
-                  <h3 className="font-serif text-lg tracking-wide text-foreground mb-2">
-                    Cerimónia Religiosa
-                  </h3>
-                  <p className="text-body text-sm mb-3">
-                    A bênção de Deus sobre a nossa união, perante a família e amigos.
-                  </p>
-                  <a
-                    href="https://www.google.com/maps/place/Igreja+Metodista+Unida+John+Wesley/@-8.9408388,13.1987105,21z/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 font-sans text-xs font-light tracking-wider text-muted-foreground hover:text-accent-gold"
-                  >
-                    <MapPin className="w-3.5 h-3.5" />
-                    Igreja John Wesley
-                  </a>
-                </div>
+            <div className="flex gap-3 sm:gap-4 items-start">
+              <span className="font-serif text-lg sm:text-xl tracking-wider text-foreground w-14 sm:w-16 shrink-0 text-right">
+                16:00
+              </span>
+              <div className="h-px w-4 sm:w-6 bg-border mt-2.5 sm:mt-3 shrink-0" />
+              <div className="min-w-0">
+                <h3 className="font-serif text-sm sm:text-base tracking-wide text-foreground mb-1">
+                  Cerimónia Religiosa
+                </h3>
+                <p className="text-body text-xs sm:text-sm mb-2">
+                  A bênção de Deus sobre a nossa união, perante a família e amigos.
+                </p>
+                <a
+                  href="https://www.google.com/maps/place/Igreja+Metodista+Unida+John+Wesley/@-8.9408388,13.1987105,21z/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 label text-muted-foreground hover:text-accent transition-colors duration-150"
+                >
+                  <MapPin className="w-3 h-3" />
+                  Igreja John Wesley
+                </a>
               </div>
             </div>
 
             {/* Event 3 */}
-            <div className="relative">
-              <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-8">
-                <div className="flex items-center gap-4 md:w-1/2 md:justify-end md:pr-8">
-                  <div className="w-8 h-8 rounded-full bg-background border-2 border-accent-gold flex items-center justify-center shrink-0 relative z-10">
-                    <span className="w-2 h-2 rounded-full bg-accent-gold" />
-                  </div>
-                  <span className="font-serif text-2xl tracking-wider text-foreground md:text-right">
-                    19:30
-                  </span>
-                </div>
-
-                <div className="md:w-1/2 md:pl-8">
-                  <h3 className="font-serif text-lg tracking-wide text-foreground mb-2">
-                    Recepção
-                  </h3>
-                  <p className="text-body text-sm mb-3">
-                    Jantar, dança e celebração com todos os nossos entes queridos.
-                  </p>
-                  <a
-                    href="https://www.google.com/maps/place/Sal%C3%A3o+de+Festas+Pingo+Douro/@-8.9802384,13.1939844,17z/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 font-sans text-xs font-light tracking-wider text-muted-foreground hover:text-accent-gold"
-                  >
-                    <MapPin className="w-3.5 h-3.5" />
-                    Salão Pingo D'Ouro
-                  </a>
-                </div>
+            <div className="flex gap-3 sm:gap-4 items-start">
+              <span className="font-serif text-lg sm:text-xl tracking-wider text-foreground w-14 sm:w-16 shrink-0 text-right">
+                19:30
+              </span>
+              <div className="h-px w-4 sm:w-6 bg-border mt-2.5 sm:mt-3 shrink-0" />
+              <div className="min-w-0">
+                <h3 className="font-serif text-sm sm:text-base tracking-wide text-foreground mb-1">
+                  Recepção
+                </h3>
+                <p className="text-body text-xs sm:text-sm mb-2">
+                  Jantar, dança e celebração com todos os nossos entes queridos.
+                </p>
+                <a
+                  href="https://www.google.com/maps/place/Sal%C3%A3o+de+Festas+Pingo+Douro/@-8.9802384,13.1939844,17z/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 label text-muted-foreground hover:text-accent transition-colors duration-150"
+                >
+                  <MapPin className="w-3 h-3" />
+                  Salão Pingo D\'Ouro
+                </a>
               </div>
             </div>
           </div>
@@ -169,46 +195,42 @@ export function Welcome() {
       </section>
 
       {/* ═══════════════════════════════════════════
-          GUEST ACCESS — Simple, no cards
+          RSVP — Direct
           ═══════════════════════════════════════════ */}
-      <section className="py-24 md:py-32 px-6 md:px-12 lg:px-20">
-        <div className="max-w-2xl mx-auto text-center">
+      <section className="py-16 sm:py-20 md:py-24 px-6 bg-secondary/30">
+        <div className="max-w-xl mx-auto text-center px-2 sm:px-0">
           <p className="label mb-4">Convidados</p>
-          <h2 className="text-heading text-2xl sm:text-3xl mb-6">
-            Consulte o Seu Código
+          <h2 className="font-serif text-xl sm:text-2xl md:text-3xl tracking-[0.08em] text-foreground uppercase mb-6">
+            Consulte o Seu Convite
           </h2>
-          <p className="text-body mb-8 max-w-md mx-auto">
+          <p className="text-body max-w-md mx-auto mb-8 text-sm sm:text-base">
             Introduza o código de acesso do seu convite para consultar os detalhes da sua reserva e gerar o seu código QR.
           </p>
           <Link
             href="/guest"
-            className="btn btn-primary inline-flex items-center gap-2 group"
+            className="inline-flex items-center gap-2 h-11 sm:h-12 px-6 sm:px-8 rounded-full bg-foreground text-background font-serif text-[0.625rem] sm:text-[0.6875rem] tracking-[0.15em] uppercase hover:bg-foreground/90 transition-colors duration-150"
           >
-            <Calendar className="w-4 h-4" />
             Consultar Código
-            <ArrowRight className="w-4 h-4 transition-transform duration-150 group-hover:translate-x-1" />
+            <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
       </section>
 
       {/* ═══════════════════════════════════════════
-          FOOTER — Minimal, elegant
+          FOOTER — Minimal
           ═══════════════════════════════════════════ */}
-      <footer className="py-16 md:py-20 px-6 md:px-12 lg:px-20 border-t border-border">
+      <footer className="py-12 sm:py-16 px-6 border-t border-border">
         <div className="max-w-4xl mx-auto text-center">
-          <p className="font-display text-3xl text-foreground/10 mb-6">
-            &
+          <p className="font-serif text-lg sm:text-xl tracking-[0.15em] text-foreground">
+            CINDY <span className="font-display text-accent">&</span> FAUSTO
           </p>
-          <p className="font-serif text-xl tracking-[0.15em] text-foreground">
-            CINDY <span className="font-display">&</span> FAUSTO
-          </p>
-          <p className="label mt-3 mb-8">
+          <p className="label mt-3 mb-6 sm:mb-8">
             18 de Outubro de 2025
           </p>
 
           <Link
             href="/staff"
-            className="staff-link text-xs"
+            className="staff-link"
           >
             Acesso da Equipe
           </Link>

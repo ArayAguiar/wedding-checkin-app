@@ -1,9 +1,9 @@
-// src/components/QRScanner.tsx
+"use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Card } from "./ui/card";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Camera, CameraOff, X, Keyboard } from "lucide-react";
 import jsQR from "jsqr";
 
@@ -22,18 +22,14 @@ export function QRScanner({ onScan, onClose, isActive }: QRScannerProps) {
   const [showManualInput, setShowManualInput] = useState(false);
   const [manualCode, setManualCode] = useState("");
   const [highlightDetected, setHighlightDetected] = useState(false);
+  const scannedRef = useRef(false);
 
-  // Stop camera helper
-  const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach((t) => t.stop());
-      setStream(null);
-    }
-  };
-
-  // Initialize camera
+  // ── Camera lifecycle ──
+  // Only runs when isActive toggles. Cleanup stops all tracks on unmount.
   useEffect(() => {
     if (!isActive || !videoRef.current) return;
+
+    let mounted = true;
 
     const initCamera = async () => {
       try {
@@ -48,6 +44,12 @@ export function QRScanner({ onScan, onClose, isActive }: QRScannerProps) {
           video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } },
         });
 
+        if (!mounted) {
+          // Race: component unmounted before camera returned. Clean up.
+          mediaStream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
           setStream(mediaStream);
@@ -56,6 +58,7 @@ export function QRScanner({ onScan, onClose, isActive }: QRScannerProps) {
 
         setIsLoading(false);
       } catch (err: any) {
+        if (!mounted) return;
         console.warn(err);
         setHasCamera(false);
         setIsLoading(false);
@@ -65,21 +68,30 @@ export function QRScanner({ onScan, onClose, isActive }: QRScannerProps) {
     };
 
     initCamera();
-    return () => stopCamera();
+
+    return () => {
+      mounted = false;
+      if (stream) {
+        stream.getTracks().forEach((t) => t.stop());
+      }
+    };
   }, [isActive]);
 
-  // Scan QR Code
+  // ── Scan loop ──
+  // Depends on [stream] only. onScan is NOT here — it is passed via ref
+  // to avoid re-subscribing every time parent re-renders.
   useEffect(() => {
     if (!isActive || !stream || !videoRef.current) return;
 
     const video = videoRef.current;
     const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
     let animationFrameId: number;
+    let running = true;
 
-    const scan = () => {
-      if (!video || !ctx || video.readyState !== video.HAVE_ENOUGH_DATA) {
-        animationFrameId = requestAnimationFrame(scan);
+    const scan = async () => {
+      if (!running || !video || !ctx || video.readyState !== video.HAVE_ENOUGH_DATA) {
+        if (running) animationFrameId = requestAnimationFrame(scan);
         return;
       }
 
@@ -91,33 +103,55 @@ export function QRScanner({ onScan, onClose, isActive }: QRScannerProps) {
       const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const code = jsQR(imgData.data, imgData.width, imgData.height);
 
-      if (code?.data) {
+      if (code?.data && !scannedRef.current) {
+        scannedRef.current = true;
         const result = code.data.trim().toUpperCase();
         setHighlightDetected(true);
-        stopCamera(); // Stop camera immediately
+        // Stop camera before calling parent — prevents race
+        stream.getTracks().forEach((t) => t.stop());
+        setStream(null);
         onScan(result);
-      } else {
-        animationFrameId = requestAnimationFrame(scan);
+        return;
       }
+
+      animationFrameId = requestAnimationFrame(scan);
     };
 
     scan();
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [stream, isActive, onScan]);
+    return () => {
+      running = false;
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [stream, isActive]);
 
-  // Handle closing properly
+  // ── Reset when reopened ──
+  useEffect(() => {
+    if (isActive) {
+      scannedRef.current = false;
+      setHighlightDetected(false);
+      setManualCode("");
+      setShowManualInput(false);
+      setError("");
+    }
+  }, [isActive]);
+
   const handleClose = () => {
-    stopCamera();
+    if (stream) {
+      stream.getTracks().forEach((t) => t.stop());
+      setStream(null);
+    }
     setManualCode("");
     setShowManualInput(false);
     setHighlightDetected(false);
     onClose();
   };
 
-  // Handle manual submit (also ensures camera stops)
   const handleManualSubmit = () => {
-    stopCamera();
-    if (manualCode.trim()) onScan(manualCode.trim());
+    if (stream) {
+      stream.getTracks().forEach((t) => t.stop());
+      setStream(null);
+    }
+    if (manualCode.trim()) onScan(manualCode.trim().toUpperCase());
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -166,7 +200,7 @@ export function QRScanner({ onScan, onClose, isActive }: QRScannerProps) {
               <p className="text-xs md:text-sm text-muted-foreground text-center">
                 Posicione o código QR dentro da vista da câmara
               </p>
-              <Button variant="outline" onClick={() => { stopCamera(); setShowManualInput(true); }} className="w-full">
+              <Button variant="outline" onClick={() => { if (stream) { stream.getTracks().forEach((t) => t.stop()); setStream(null); } setShowManualInput(true); }} className="w-full">
                 <Keyboard className="w-4 h-4 mr-2" /> Introduzir código manualmente
               </Button>
             </div>
@@ -187,7 +221,7 @@ export function QRScanner({ onScan, onClose, isActive }: QRScannerProps) {
                   placeholder="Ex: CAS001"
                   value={manualCode}
                   onChange={(e) => setManualCode(e.target.value.toUpperCase())}
-                  onKeyPress={handleKeyPress}
+                  onKeyDown={handleKeyPress}
                   className="uppercase"
                 />
                 <Button onClick={handleManualSubmit} disabled={!manualCode.trim()} className="w-full">

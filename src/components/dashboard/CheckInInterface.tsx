@@ -1,373 +1,391 @@
 "use client";
 
-// src\components\dashboard\CheckInInterface.tsx
-
-
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { QRScanner } from "@/components/QRScanner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Camera, Search, Check, Undo2, Users, User, Loader2 } from "lucide-react";
+import { Search, QrCode, Users, Undo2 } from "lucide-react";
 import { toast } from "sonner";
-
-function useDebounce<T>(value: T, delay = 500) {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const handler = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(handler);
-  }, [value, delay]);
-  return debounced;
-}
 
 interface Guest {
   id: string;
-  nome: string;
-  acompanhante?: string;
-  mesa?: string;
+  name: string;
+  companionName?: string;
+  table?: string;
   codigo_acesso: string;
-  check_in: boolean;
-  check_in_acomp?: boolean;
+  checkedIn: boolean;
+  companionCheckedIn?: boolean;
 }
 
-export function CheckIn() {
+interface CheckInInterfaceProps {
+  initialGuests: Guest[];
+}
+
+export default function CheckInInterface({ initialGuests }: CheckInInterfaceProps) {
+  const supabase = createClient();
+
   const [search, setSearch] = useState("");
-  const [guests, setGuests] = useState<Guest[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [guests, setGuests] = useState<Guest[]>(initialGuests);
   const [scannerActive, setScannerActive] = useState(false);
-  const [confirmDialog, setConfirmDialog] = useState<{
-    open: boolean;
-    guestId: string | null;
-    guestName: string;
-    action: "checkin" | "undo";
-    companion?: boolean;
-  }>({ open: false, guestId: null, guestName: "", action: "checkin" });
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
-  const [totalGuests, setTotalGuests] = useState(0);
-  const [checkedIn, setCheckedIn] = useState(0);
+  // ── Stats (computed, not fetched) ──
+  const totalPeople = guests.reduce((sum, g) => sum + 1 + (g.companionName ? 1 : 0), 0);
+  const confirmedPeople = guests.reduce((sum, g) => {
+    let count = g.checkedIn ? 1 : 0;
+    if (g.companionName && g.companionCheckedIn) count += 1;
+    return sum + count;
+  }, 0);
+  const pendingPeople = totalPeople - confirmedPeople;
 
-  const debouncedSearch = useDebounce(search, 500);
-  const isInitialLoad = isLoading && guests.length === 0;
+  // ── Filter (client-side, instant) ──
+  const filtered = guests.filter((g) => {
+    const q = search.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      g.name.toLowerCase().includes(q) ||
+      g.table?.toString().includes(q) ||
+      g.companionName?.toLowerCase().includes(q) ||
+      g.codigo_acesso.toLowerCase().includes(q)
+    );
+  });
 
-  const perPage = 20;
-  const pageRef = useRef(0);
-
-  const fetchGuests = useCallback(
-    async (searchTerm = "", reset = true) => {
-      const supabase = createClient();
-
-      if (reset) pageRef.current = 0;
-      setIsLoading(true);
-
-      try {
-        let query = supabase
-          .from("guests")
-          .select("*")
-          .order("nome", { ascending: true })
-          .range(pageRef.current * perPage, pageRef.current * perPage + perPage - 1);
-
-        if (searchTerm) {
-          query = query.or(
-            `nome.ilike.%${searchTerm}%,codigo_acesso.ilike.%${searchTerm}%`
-          );
-        }
-
-        const { data, error } = await query;
-        if (error) throw error;
-        if (!data) return;
-
-        setGuests((prev) => (reset ? data : [...prev, ...data]));
-      } catch (err: any) {
-        console.error(err);
-        toast.error("Erro ao buscar convidados");
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    []
-  );
-
-  const fetchTotals = useCallback(async () => {
-    const supabase = createClient();
-    try {
-      const { data, error } = await supabase.from("guests").select("*");
-      if (error) throw error;
-      if (!data) return;
-
-      setTotalGuests(
-        data.reduce((acc, g) => acc + 1 + (g.acompanhante ? 1 : 0), 0)
-      );
-      setCheckedIn(
-        data.reduce(
-          (acc, g) =>
-            acc +
-            (g.check_in ? 1 : 0) +
-            (g.acompanhante && g.check_in_acomp ? 1 : 0),
-          0
-        )
-      );
-    } catch (err: any) {
-      console.error(err);
-    }
+  // ── QR Scan ──
+  const handleQRScan = useCallback((result: string) => {
+    setSearch(result);
+    setScannerActive(false);
+    setTimeout(() => searchRef.current?.focus(), 100);
+    toast.info(`Código: ${result}`);
   }, []);
 
-  useEffect(() => {
-    fetchGuests();
-    fetchTotals();
-  }, [fetchGuests, fetchTotals]);
-
-  useEffect(() => {
-    fetchGuests(debouncedSearch);
-  }, [debouncedSearch, fetchGuests]);
-
-  const handleQRScan = (result: string) => {
-    setSearch(result);
-    fetchGuests(result);
+  const handleCloseScanner = useCallback(() => {
     setScannerActive(false);
-  };
+  }, []);
 
-  const handleCheckIn = async (guest: Guest, companion = false) => {
-    setConfirmDialog({
-      open: true,
-      guestId: guest.id,
-      guestName: companion ? guest.acompanhante! : guest.nome,
-      action: companion
-        ? guest.check_in_acomp
-          ? "undo"
-          : "checkin"
-        : guest.check_in
-          ? "undo"
-          : "checkin",
-      companion,
-    });
-  };
+  // ── Check-in / Undo ──
+  const handleCheckIn = async (guestId: string, includeCompanion: boolean) => {
+    const guest = guests.find((g) => g.id === guestId);
+    if (!guest) return;
 
-  const updateCheckIn = async () => {
-    const { guestId, action, companion } = confirmDialog;
-    if (!guestId) return;
-    const supabase = createClient();
+    // Optimistic update
+    setGuests((prev) =>
+      prev.map((g) =>
+        g.id === guestId
+          ? {
+              ...g,
+              checkedIn: true,
+              companionCheckedIn: includeCompanion ? true : g.companionCheckedIn,
+            }
+          : g
+      )
+    );
+    setExpandedId(null);
 
     try {
-      const updateData = companion
-        ? { check_in_acomp: action === "checkin" }
-        : { check_in: action === "checkin" };
+      const updateData = includeCompanion
+        ? { check_in: true, check_in_acomp: true }
+        : { check_in: true };
 
       const { error } = await supabase.from("guests").update(updateData).eq("id", guestId);
       if (error) throw error;
 
       toast.success(
-        action === "checkin" ? "Check-in realizado!" : "Check-in desfeito!"
+        includeCompanion && guest.companionName
+          ? `${guest.name} e ${guest.companionName} confirmados`
+          : `${guest.name} confirmado`
       );
-
-      fetchGuests(debouncedSearch);
-      fetchTotals();
-    } catch (err: any) {
-      console.error(err);
-      toast.error("Erro ao atualizar check-in");
-    } finally {
-      setConfirmDialog({ open: false, guestId: null, guestName: "", action: "checkin" });
+    } catch {
+      // Rollback
+      setGuests((prev) => prev.map((g) => (g.id === guestId ? guest : g)));
+      toast.error("Erro ao confirmar");
     }
   };
 
-  // Lazy load more on scroll
-  const observer = useRef<IntersectionObserver>();
-  const lastGuestRef = useCallback(
-    (node: any) => {
-      if (isLoading) return;
-      if (observer.current) observer.current.disconnect();
-      observer.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting) {
-          pageRef.current += 1;
-          fetchGuests(debouncedSearch, false);
-        }
-      });
-      if (node) observer.current.observe(node);
-    },
-    [isLoading, fetchGuests, debouncedSearch]
-  );
+  const handleUndo = async (guestId: string) => {
+    const guest = guests.find((g) => g.id === guestId);
+    if (!guest) return;
+
+    setGuests((prev) =>
+      prev.map((g) =>
+        g.id === guestId
+          ? { ...g, checkedIn: false, companionCheckedIn: false }
+          : g
+      )
+    );
+
+    try {
+      const { error } = await supabase
+        .from("guests")
+        .update({ check_in: false, check_in_acomp: false })
+        .eq("id", guestId);
+      if (error) throw error;
+
+      toast.info(`${guest.name} desfeito`);
+    } catch {
+      setGuests((prev) => prev.map((g) => (g.id === guestId ? guest : g)));
+      toast.error("Erro ao desfazer");
+    }
+  };
+
+  // ── Keyboard shortcuts ──
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+      if (e.key === "Escape") {
+        setScannerActive(false);
+        setExpandedId(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-4">
-      {/* Stats cards */}
-      <div className="overflow-x-auto whitespace-nowrap mb-4">
-        <div className="flex gap-3 min-w-max">
-          <Card className="flex-none p-4 text-center">
-            <div className="flex justify-center items-center gap-2">
-              <Check className="w-5 h-5 text-green-500" />
-              {isInitialLoad ? (
-                <Skeleton className="h-6 w-8" />
-              ) : (
-                <p className="text-xl font-bold">{checkedIn}</p>
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground">Convidados com Check-in</p>
-          </Card>
-
-          <Card className="flex-none p-4 text-center">
-            <div className="flex justify-center items-center gap-2">
-              <Undo2 className="w-5 h-5 text-red-500" />
-              {isInitialLoad ? (
-                <Skeleton className="h-6 w-8" />
-              ) : (
-                <p className="text-xl font-bold">{totalGuests - checkedIn}</p>
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground">Convidados Restantes</p>
-          </Card>
-
-          <Card className="flex-none p-4 text-center">
-            <div className="flex justify-center items-center gap-2">
-              <Users className="w-5 h-5 text-primary" />
-              {isInitialLoad ? (
-                <Skeleton className="h-6 w-8" />
-              ) : (
-                <p className="text-xl font-bold">{totalGuests}</p>
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground">Total de Convidados</p>
-          </Card>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border">
+        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="text-center flex-1">
+            <h1 className="font-display text-xl tracking-[0.15em] text-foreground">
+              CHECK-IN
+            </h1>
+            <p className="label text-muted-foreground mt-0.5">
+              Painel da Equipe
+            </p>
+          </div>
         </div>
-      </div>
+      </header>
 
+      <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        {/* Stats — inline, no cards */}
+        <div className="flex items-baseline gap-2 text-sm">
+          <span className="font-serif text-2xl text-foreground">
+            {confirmedPeople}
+          </span>
+          <span className="label text-muted-foreground">
+            de {totalPeople} pessoas confirmadas
+          </span>
+          {pendingPeople > 0 && (
+            <>
+              <span className="text-border mx-1">·</span>
+              <span className="label text-muted-foreground">
+                {pendingPeople} pendentes
+              </span>
+            </>
+          )}
+        </div>
 
-      {/* Search & QR */}
-      <Card className="p-4 space-y-3">
-        <div className="flex gap-2">
-          <Input
-            placeholder="Pesquisar por nome ou código"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1"
-          />
-          <Button onClick={() => fetchGuests(search)}>
-            <Search className="w-4 h-4" />
+        {/* Search — design system tokens */}
+        <div className="flex gap-3 items-end">
+          <div className="relative flex-1">
+            <Search className="absolute left-0 bottom-3 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <Input
+              ref={searchRef}
+              type="text"
+              placeholder="Buscar por nome, mesa ou código..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-6 h-12 bg-transparent border-0 border-b border-border rounded-none font-sans text-sm focus-visible:ring-0 focus-visible:border-foreground transition-colors"
+            />
+            {search && (
+              <button
+                onClick={() => {
+                  setSearch("");
+                  searchRef.current?.focus();
+                }}
+                className="absolute right-0 bottom-3 text-muted-foreground hover:text-foreground text-xs label"
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+          <Button
+            onClick={() => setScannerActive(true)}
+            className="h-12 w-12 rounded-full bg-foreground hover:bg-foreground/90 shrink-0 flex items-center justify-center"
+            aria-label="Escanear QR"
+          >
+            <QrCode className="w-5 h-5 text-background" />
           </Button>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => setScannerActive(true)}
-          disabled={scannerActive}
-          className="w-full mt-2 flex items-center justify-center gap-2"
-        >
-          <Camera className="w-4 h-4" /> Digitalizar Código QR
-        </Button>
-      </Card>
 
-      {/* Guest list */}
-      <div className="space-y-3">
-        {isInitialLoad &&
-          Array.from({ length: 4 }).map((_, i) => (
-            <Card key={`skeleton-${i}`} className="p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <Skeleton className="w-5 h-5 rounded-full" />
-                <Skeleton className="h-4 w-32" />
-              </div>
-              <div className="border-t border-muted-foreground/40 my-2" />
-              <div className="flex items-center justify-between gap-2">
-                <Skeleton className="h-4 w-36" />
-                <Skeleton className="h-8 w-24 rounded-md" />
-              </div>
-            </Card>
-          ))}
-
-        {!isInitialLoad && guests.map((guest, index) => {
-          const isLast = index === guests.length - 1;
-          return (
-            <Card key={guest.id} className="p-4 space-y-2">
-              {/* Top line: invitation info */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {guest.acompanhante ? <Users className="w-5 h-5" /> : <User className="w-5 h-5" />}
-                  <p className="font-medium">Convite: {guest.codigo_acesso}</p>
-                </div>
-              </div>
-
-              {/* Divider */}
-              <div className="border-t border-muted-foreground/40 my-2" />
-
-              {/* Main guest */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-muted-foreground" />
-                  <p>{guest.nome}</p>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => handleCheckIn(guest)}
-                  variant={guest.check_in ? "outline" : "default"}
+        {/* Guest list */}
+        <div className="space-y-3">
+          {filtered.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="font-serif text-muted-foreground">
+                Nenhum convidado encontrado
+              </p>
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="label text-accent mt-2 hover:underline cursor-pointer"
                 >
-                  {guest.check_in ? <Undo2 className="w-4 h-4 mr-1" /> : <Check className="w-4 h-4 mr-1" />}
-                  {guest.check_in ? "Undo" : "Check-in"}
-                </Button>
-              </div>
-
-              {/* Companion, if exists */}
-              {guest.acompanhante && (
-                <div className="flex items-center justify-between gap-2 mt-2">
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-muted-foreground" />
-                    <p>{guest.acompanhante}</p>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={() => handleCheckIn(guest, true)}
-                    variant={guest.check_in_acomp ? "outline" : "default"}
-                  >
-                    {guest.check_in_acomp ? <Undo2 className="w-4 h-4 mr-1" /> : <Check className="w-4 h-4 mr-1" />}
-                    {guest.check_in_acomp ? "Undo" : "Check-in"}
-                  </Button>
-                </div>
+                  Limpar busca
+                </button>
               )}
-            </Card>
-
-          );
-        })}
-        {isLoading && !isInitialLoad && (
-          <Loader2 className="w-6 h-6 animate-spin mx-auto my-4" />
-        )}
-      </div>
+            </div>
+          ) : (
+            filtered.map((guest) => (
+              <GuestCard
+                key={guest.id}
+                guest={guest}
+                isExpanded={expandedId === guest.id}
+                onExpand={() => setExpandedId(expandedId === guest.id ? null : guest.id)}
+                onCheckIn={handleCheckIn}
+                onUndo={handleUndo}
+              />
+            ))
+          )}
+        </div>
+      </main>
 
       {/* QR Scanner */}
-      <QRScanner onScan={handleQRScan} onClose={() => setScannerActive(false)} isActive={scannerActive} />
+      {scannerActive && (
+        <QRScanner
+          onScan={handleQRScan}
+          onClose={handleCloseScanner}
+          isActive={scannerActive}
+        />
+      )}
+    </div>
+  );
+}
 
-      {/* Confirm / Undo Alert */}
-      <AlertDialog
-        open={confirmDialog.open}
-        onOpenChange={(open) =>
-          setConfirmDialog((prev) => ({ ...prev, open }))
-        }
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {confirmDialog.action === "checkin" ? "Confirmar Check-in" : "Desfazer Check-in"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmDialog.action === "checkin"
-                ? `Tem a certeza que pretende fazer o check-in de ${confirmDialog.guestName}?`
-                : `Tem a certeza que pretende desfazer o check-in de ${confirmDialog.guestName}?`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={updateCheckIn}>
-              {confirmDialog.action === "checkin" ? "Confirmar Check-in" : "Desfazer Check-in"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+// ── Guest Card ──
+function GuestCard({
+  guest,
+  isExpanded,
+  onExpand,
+  onCheckIn,
+  onUndo,
+}: {
+  guest: Guest;
+  isExpanded: boolean;
+  onExpand: () => void;
+  onCheckIn: (id: string, includeCompanion: boolean) => void;
+  onUndo: (id: string) => void;
+}) {
+  const fullyChecked =
+    guest.checkedIn && (!guest.companionName || guest.companionCheckedIn);
+
+  const partiallyChecked =
+    guest.checkedIn && guest.companionName && !guest.companionCheckedIn;
+
+  const statusText = fullyChecked
+    ? "Confirmado"
+    : partiallyChecked
+    ? "Parcial"
+    : "Pendente";
+
+  return (
+    <div
+      className={`rounded-2xl p-4 border transition-colors duration-200 ${
+        fullyChecked
+          ? "bg-secondary/40 border-border/50"
+          : "bg-card border-border shadow-sm"
+      }`}
+    >
+      {/* Row 1: Name + Status */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3
+            className={`font-serif text-sm tracking-wide truncate ${
+              fullyChecked
+                ? "text-muted-foreground line-through"
+                : "text-foreground"
+            }`}
+          >
+            {guest.name}
+          </h3>
+          <p className="label text-muted-foreground mt-1">
+            Mesa {guest.table}
+            {guest.companionName && (
+              <span className="inline-flex items-center gap-1 ml-2">
+                <Users className="w-3 h-3" />
+                {guest.companionName}
+              </span>
+            )}
+          </p>
+        </div>
+        <span
+          className={`label shrink-0 ${
+            partiallyChecked ? "text-accent" : "text-muted-foreground"
+          }`}
+        >
+          {statusText}
+        </span>
+      </div>
+
+      {/* Actions */}
+      <div className="mt-3">
+        {fullyChecked ? (
+          <button
+            onClick={() => onUndo(guest.id)}
+            className="label text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+          >
+            <Undo2 className="w-3 h-3 inline mr-1" />
+            Desfazer
+          </button>
+        ) : partiallyChecked ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-border" />
+              <span className="label text-muted-foreground">ou</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            <Button
+              onClick={() => onCheckIn(guest.id, true)}
+              className="w-full h-10 rounded-full font-serif text-[0.6875rem] tracking-[0.15em] uppercase bg-foreground hover:bg-foreground/90"
+            >
+              Confirmar {guest.companionName}
+            </Button>
+            <button
+              onClick={() => onUndo(guest.id)}
+              className="label text-muted-foreground hover:text-destructive transition-colors cursor-pointer block mx-auto"
+            >
+              <Undo2 className="w-3 h-3 inline mr-1" />
+              Desfazer
+            </button>
+          </div>
+        ) : isExpanded && guest.companionName ? (
+          <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+            <Button
+              onClick={() => onCheckIn(guest.id, true)}
+              className="w-full h-10 rounded-full font-serif text-[0.6875rem] tracking-[0.15em] uppercase bg-foreground hover:bg-foreground/90"
+            >
+              Confirmar ambos
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => onCheckIn(guest.id, false)}
+              className="w-full h-10 rounded-full font-serif text-[0.6875rem] tracking-[0.15em] uppercase border-border bg-transparent hover:bg-muted"
+            >
+              Apenas {guest.name}
+            </Button>
+            <button
+              onClick={onExpand}
+              className="label text-muted-foreground hover:text-foreground transition-colors cursor-pointer block mx-auto"
+            >
+              Cancelar
+            </button>
+          </div>
+        ) : (
+          <Button
+            onClick={() => {
+              if (guest.companionName) onExpand();
+              else onCheckIn(guest.id, false);
+            }}
+            className="w-full h-10 rounded-full font-serif text-[0.6875rem] tracking-[0.15em] uppercase bg-foreground hover:bg-foreground/90"
+          >
+            Confirmar {guest.name}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

@@ -33,6 +33,7 @@
   --color-secondary-foreground: #1a1a1a;
   --color-primary: #1a1a1a;
   --color-primary-foreground: #f5f3ef;
+  --color-ring: #8a9a84;
 
   /* ─── Radius ─── */
   --radius-sm: 0.5rem;
@@ -117,19 +118,6 @@
    ============================================================ */
 
 @layer utilities {
-  /* ─── Font Utilities ─── */
-  .font-display {
-    font-family: var(--font-display);
-  }
-
-  .font-serif {
-    font-family: var(--font-serif);
-  }
-
-  .font-sans {
-    font-family: var(--font-sans);
-  }
-
   /* ─── Display Text ─── */
   .text-display {
     font-family: var(--font-display);
@@ -170,109 +158,6 @@
     color: var(--color-muted-foreground);
   }
 
-  /* ─── Buttons ─── */
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    font-family: var(--font-serif);
-    font-size: 0.6875rem;
-    font-weight: 400;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    padding: 0.75rem 1.5rem;
-    border-radius: var(--radius-full);
-    transition:
-      transform 300ms cubic-bezier(0.4, 0, 0.2, 1),
-      background-color 300ms cubic-bezier(0.4, 0, 0.2, 1),
-      box-shadow 300ms cubic-bezier(0.4, 0, 0.2, 1);
-    border: none;
-    cursor: pointer;
-  }
-
-  .btn-primary {
-    background: var(--color-primary);
-    color: var(--color-primary-foreground);
-  }
-  .btn-primary:hover {
-    background: var(--color-foreground);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-md);
-  }
-
-  .btn-secondary {
-    background: var(--color-secondary);
-    color: var(--color-secondary-foreground);
-  }
-  .btn-secondary:hover {
-    background: var(--color-border);
-  }
-
-  .btn-outline {
-    background: transparent;
-    color: var(--color-foreground);
-    border: 1px solid var(--color-border);
-  }
-  .btn-outline:hover {
-    background: var(--color-foreground);
-    color: var(--color-background);
-    border-color: var(--color-foreground);
-  }
-
-  .btn-ghost {
-    background: transparent;
-    color: var(--color-muted-foreground);
-  }
-  .btn-ghost:hover {
-    color: var(--color-foreground);
-  }
-
-  .btn:disabled,
-  .btn[disabled] {
-    opacity: 0.4;
-    cursor: not-allowed;
-    transform: none !important;
-    box-shadow: none !important;
-  }
-
-  .btn-primary:disabled,
-  .btn-primary[disabled] {
-    background: var(--color-primary);
-    color: var(--color-primary-foreground);
-  }
-
-  .btn-sm {
-    padding: 0.5rem 1rem;
-    font-size: 0.625rem;
-  }
-
-  .btn-lg {
-    padding: 1rem 2rem;
-    font-size: 0.75rem;
-  }
-
-  /* ─── Inputs ─── */
-  .input {
-    width: 100%;
-    font-family: var(--font-sans);
-    font-size: 0.875rem;
-    font-weight: 300;
-    color: var(--color-foreground);
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid var(--color-border);
-    padding: 0.75rem 0;
-    outline: none;
-    transition: border-color 300ms ease;
-  }
-  .input:focus {
-    border-bottom-color: var(--color-foreground);
-  }
-  .input::placeholder {
-    color: var(--color-muted-foreground);
-    opacity: 0.6;
-  }
 
   /* ─── Badges ─── */
   .badge {
