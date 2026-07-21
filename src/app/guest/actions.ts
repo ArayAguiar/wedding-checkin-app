@@ -33,7 +33,7 @@ export async function lookupGuest(accessCode: string): Promise<{
 
   const { data, error } = await supabase
     .from("guests")
-    .select("*")
+    .select("id, nome, acompanhante, mesa, codigo_acesso, check_in")
     .eq("codigo_acesso", code)
     .single()
 
