@@ -31,8 +31,22 @@ export async function middleware(req: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession()
 
-  if (req.nextUrl.pathname.startsWith("/checkin") && !session) {
-    return NextResponse.redirect(new URL("/staff", req.url))
+  // Protect /checkin — must be logged in AND be staff
+  if (req.nextUrl.pathname.startsWith("/checkin")) {
+    if (!session) {
+      return NextResponse.redirect(new URL("/staff", req.url))
+    }
+
+    // Verify staff role by email
+    const { data: staff } = await supabase
+      .from("staff")
+      .select("id")
+      .eq("email", session.user.email)
+      .single()
+
+    if (!staff) {
+      return NextResponse.redirect(new URL("/", req.url))
+    }
   }
 
   return res

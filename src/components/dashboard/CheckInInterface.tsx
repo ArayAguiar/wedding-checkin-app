@@ -5,8 +5,9 @@ import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { QRScanner } from "@/components/QRScanner";
-import { Search, QrCode, Users, Undo2 } from "lucide-react";
+import { Search, QrCode, Users, Undo2, LogOut } from "lucide-react";
 import { toast } from "sonner";
+import { checkInGuest, undoCheckIn } from "@/app/checkin/actions";
 
 interface Guest {
   id: string;
@@ -29,10 +30,71 @@ export default function CheckInInterface({ initialGuests }: CheckInInterfaceProp
   const [guests, setGuests] = useState<Guest[]>(initialGuests);
   const [scannerActive, setScannerActive] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [checkingInId, setCheckingInId] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // ── Stats (computed, not fetched) ──
-  const totalPeople = guests.reduce((sum, g) => sum + 1 + (g.companionName ? 1 : 0), 0);
+  // ── Real-time updates + polling fallback ──
+  useEffect(() => {
+    let realtimeConnected = false;
+
+    const channel = supabase
+      .channel("guest-checkins")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "guests" },
+        (payload) => {
+          const updated = payload.new as Record<string, unknown>;
+          setGuests((prev) =>
+            prev.map((g) =>
+              g.id === updated.id
+                ? {
+                    ...g,
+                    checkedIn: Boolean(updated.check_in),
+                    companionCheckedIn: Boolean(updated.check_in_acomp),
+                  }
+                : g
+            )
+          );
+        }
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") realtimeConnected = true;
+      });
+
+    // Polling fallback for unreliable venue Wi-Fi
+    const pollInterval = setInterval(async () => {
+      if (realtimeConnected) return;
+
+      const { data, error } = await supabase
+        .from("guests")
+        .select("id, check_in, check_in_acomp");
+
+      if (error || !data) return;
+
+      setGuests((prev) =>
+        prev.map((g) => {
+          const match = data.find((d: Record<string, unknown>) => d.id === g.id);
+          if (!match) return g;
+          return {
+            ...g,
+            checkedIn: Boolean(match.check_in),
+            companionCheckedIn: Boolean(match.check_in_acomp),
+          };
+        })
+      );
+    }, 5000);
+
+    return () => {
+      clearInterval(pollInterval);
+      supabase.removeChannel(channel);
+    };
+  }, [supabase]);
+
+  // ── Stats ──
+  const totalPeople = guests.reduce(
+    (sum, g) => sum + 1 + (g.companionName ? 1 : 0),
+    0
+  );
   const confirmedPeople = guests.reduce((sum, g) => {
     let count = g.checkedIn ? 1 : 0;
     if (g.companionName && g.companionCheckedIn) count += 1;
@@ -40,7 +102,7 @@ export default function CheckInInterface({ initialGuests }: CheckInInterfaceProp
   }, 0);
   const pendingPeople = totalPeople - confirmedPeople;
 
-  // ── Filter (client-side, instant) ──
+  // ── Filter ──
   const filtered = guests.filter((g) => {
     const q = search.toLowerCase().trim();
     if (!q) return true;
@@ -66,46 +128,49 @@ export default function CheckInInterface({ initialGuests }: CheckInInterfaceProp
 
   // ── Check-in / Undo ──
   const handleCheckIn = async (guestId: string, includeCompanion: boolean) => {
+    if (checkingInId) return;
     const guest = guests.find((g) => g.id === guestId);
     if (!guest) return;
 
-    // Optimistic update
+    setCheckingInId(guestId);
+
     setGuests((prev) =>
       prev.map((g) =>
         g.id === guestId
           ? {
               ...g,
               checkedIn: true,
-              companionCheckedIn: includeCompanion ? true : g.companionCheckedIn,
+              companionCheckedIn: includeCompanion
+                ? true
+                : g.companionCheckedIn,
             }
           : g
       )
     );
     setExpandedId(null);
 
-    try {
-      const updateData = includeCompanion
-        ? { check_in: true, check_in_acomp: true }
-        : { check_in: true };
+    const result = await checkInGuest(guestId, includeCompanion);
+    setCheckingInId(null);
 
-      const { error } = await supabase.from("guests").update(updateData).eq("id", guestId);
-      if (error) throw error;
-
-      toast.success(
-        includeCompanion && guest.companionName
-          ? `${guest.name} e ${guest.companionName} confirmados`
-          : `${guest.name} confirmado`
-      );
-    } catch {
-      // Rollback
+    if (!result.success) {
       setGuests((prev) => prev.map((g) => (g.id === guestId ? guest : g)));
-      toast.error("Erro ao confirmar");
+      toast.error(result.error || "Erro ao confirmar");
+      return;
     }
+
+    toast.success(
+      includeCompanion && guest.companionName
+        ? `${guest.name} e ${guest.companionName} confirmados`
+        : `${guest.name} confirmado`
+    );
   };
 
   const handleUndo = async (guestId: string) => {
+    if (checkingInId) return;
     const guest = guests.find((g) => g.id === guestId);
     if (!guest) return;
+
+    setCheckingInId(guestId);
 
     setGuests((prev) =>
       prev.map((g) =>
@@ -115,18 +180,16 @@ export default function CheckInInterface({ initialGuests }: CheckInInterfaceProp
       )
     );
 
-    try {
-      const { error } = await supabase
-        .from("guests")
-        .update({ check_in: false, check_in_acomp: false })
-        .eq("id", guestId);
-      if (error) throw error;
+    const result = await undoCheckIn(guestId);
+    setCheckingInId(null);
 
-      toast.info(`${guest.name} desfeito`);
-    } catch {
+    if (!result.success) {
       setGuests((prev) => prev.map((g) => (g.id === guestId ? guest : g)));
-      toast.error("Erro ao desfazer");
+      toast.error(result.error || "Erro ao desfazer");
+      return;
     }
+
+    toast.info(`${guest.name} desfeito`);
   };
 
   // ── Keyboard shortcuts ──
@@ -146,23 +209,37 @@ export default function CheckInInterface({ initialGuests }: CheckInInterfaceProp
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="text-center flex-1">
-            <h1 className="font-display text-xl tracking-[0.15em] text-foreground">
+      <header className="shrink-0 border-b border-border bg-background/80 backdrop-blur-md">
+        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="w-10" />
+          <div className="text-center">
+            <h1 className="font-display text-lg tracking-[0.15em] text-foreground">
               CHECK-IN
             </h1>
-            <p className="label text-muted-foreground mt-0.5">
+            <p className="label text-muted-foreground text-xs mt-0.5">
               Painel da Equipe
             </p>
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={async () => {
+              await supabase.auth.signOut();
+              window.location.href = "/staff";
+            }}
+            aria-label="Sair"
+            className="w-10 h-10 shrink-0"
+          >
+            <LogOut className="w-5 h-5 text-muted-foreground" />
+          </Button>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        {/* Stats — inline, no cards */}
+      {/* Controls */}
+      <div className="shrink-0 max-w-2xl mx-auto w-full px-4 pt-4 pb-3 space-y-4">
+        {/* Stats */}
         <div className="flex items-baseline gap-2 text-sm">
           <span className="font-serif text-2xl text-foreground">
             {confirmedPeople}
@@ -180,7 +257,7 @@ export default function CheckInInterface({ initialGuests }: CheckInInterfaceProp
           )}
         </div>
 
-        {/* Search — design system tokens */}
+        {/* Search */}
         <div className="flex gap-3 items-end">
           <div className="relative flex-1">
             <Search className="absolute left-0 bottom-3 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -193,15 +270,17 @@ export default function CheckInInterface({ initialGuests }: CheckInInterfaceProp
               className="pl-6 h-12 bg-transparent border-0 border-b border-border rounded-none font-sans text-sm focus-visible:ring-0 focus-visible:border-foreground transition-colors"
             />
             {search && (
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   setSearch("");
                   searchRef.current?.focus();
                 }}
-                className="absolute right-0 bottom-3 text-muted-foreground hover:text-foreground text-xs label"
+                className="absolute right-0 bottom-1.5 h-auto px-0 py-0 text-muted-foreground hover:text-foreground text-xs label"
               >
                 Limpar
-              </button>
+              </Button>
             )}
           </div>
           <Button
@@ -212,21 +291,25 @@ export default function CheckInInterface({ initialGuests }: CheckInInterfaceProp
             <QrCode className="w-5 h-5 text-background" />
           </Button>
         </div>
+      </div>
 
-        {/* Guest list */}
-        <div className="space-y-3">
+      {/* Guest list — scrollable */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="max-w-2xl mx-auto px-4 pb-6 space-y-3">
           {filtered.length === 0 ? (
             <div className="text-center py-12">
               <p className="font-serif text-muted-foreground">
                 Nenhum convidado encontrado
               </p>
               {search && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setSearch("")}
-                  className="label text-accent mt-2 hover:underline cursor-pointer"
+                  className="label text-accent mt-2 hover:underline"
                 >
                   Limpar busca
-                </button>
+                </Button>
               )}
             </div>
           ) : (
@@ -235,14 +318,17 @@ export default function CheckInInterface({ initialGuests }: CheckInInterfaceProp
                 key={guest.id}
                 guest={guest}
                 isExpanded={expandedId === guest.id}
-                onExpand={() => setExpandedId(expandedId === guest.id ? null : guest.id)}
+                onExpand={() =>
+                  setExpandedId(expandedId === guest.id ? null : guest.id)
+                }
                 onCheckIn={handleCheckIn}
                 onUndo={handleUndo}
+                checkingInId={checkingInId}
               />
             ))
           )}
         </div>
-      </main>
+      </div>
 
       {/* QR Scanner */}
       {scannerActive && (
@@ -263,13 +349,17 @@ function GuestCard({
   onExpand,
   onCheckIn,
   onUndo,
+  checkingInId,
 }: {
   guest: Guest;
   isExpanded: boolean;
   onExpand: () => void;
   onCheckIn: (id: string, includeCompanion: boolean) => void;
   onUndo: (id: string) => void;
+  checkingInId: string | null;
 }) {
+  const isProcessing = checkingInId === guest.id;
+
   const fullyChecked =
     guest.checkedIn && (!guest.companionName || guest.companionCheckedIn);
 
@@ -279,8 +369,8 @@ function GuestCard({
   const statusText = fullyChecked
     ? "Confirmado"
     : partiallyChecked
-    ? "Parcial"
-    : "Pendente";
+      ? "Parcial"
+      : "Pendente";
 
   return (
     <div
@@ -290,7 +380,7 @@ function GuestCard({
           : "bg-card border-border shadow-sm"
       }`}
     >
-      {/* Row 1: Name + Status */}
+      {/* Name + Status */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3
@@ -324,13 +414,16 @@ function GuestCard({
       {/* Actions */}
       <div className="mt-3">
         {fullyChecked ? (
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => onUndo(guest.id)}
-            className="label text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+            disabled={isProcessing}
+            className="label text-muted-foreground hover:text-destructive transition-colors h-auto px-0"
           >
             <Undo2 className="w-3 h-3 inline mr-1" />
             Desfazer
-          </button>
+          </Button>
         ) : partiallyChecked ? (
           <div className="space-y-2">
             <div className="flex items-center gap-3">
@@ -340,39 +433,50 @@ function GuestCard({
             </div>
             <Button
               onClick={() => onCheckIn(guest.id, true)}
+              disabled={isProcessing}
               className="w-full h-10 rounded-full font-serif text-[0.6875rem] tracking-[0.15em] uppercase bg-foreground hover:bg-foreground/90"
             >
-              Confirmar {guest.companionName}
+              {isProcessing
+                ? "A confirmar..."
+                : `Confirmar ${guest.companionName}`}
             </Button>
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => onUndo(guest.id)}
-              className="label text-muted-foreground hover:text-destructive transition-colors cursor-pointer block mx-auto"
+              disabled={isProcessing}
+              className="label text-muted-foreground hover:text-destructive transition-colors h-auto px-0 block mx-auto"
             >
               <Undo2 className="w-3 h-3 inline mr-1" />
               Desfazer
-            </button>
+            </Button>
           </div>
         ) : isExpanded && guest.companionName ? (
           <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
             <Button
               onClick={() => onCheckIn(guest.id, true)}
+              disabled={isProcessing}
               className="w-full h-10 rounded-full font-serif text-[0.6875rem] tracking-[0.15em] uppercase bg-foreground hover:bg-foreground/90"
             >
-              Confirmar ambos
+              {isProcessing ? "A confirmar..." : "Confirmar ambos"}
             </Button>
             <Button
               variant="outline"
               onClick={() => onCheckIn(guest.id, false)}
+              disabled={isProcessing}
               className="w-full h-10 rounded-full font-serif text-[0.6875rem] tracking-[0.15em] uppercase border-border bg-transparent hover:bg-muted"
             >
-              Apenas {guest.name}
+              {isProcessing ? "A confirmar..." : `Apenas ${guest.name}`}
             </Button>
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={onExpand}
-              className="label text-muted-foreground hover:text-foreground transition-colors cursor-pointer block mx-auto"
+              disabled={isProcessing}
+              className="label text-muted-foreground hover:text-foreground transition-colors h-auto px-0 block mx-auto"
             >
               Cancelar
-            </button>
+            </Button>
           </div>
         ) : (
           <Button
@@ -380,9 +484,10 @@ function GuestCard({
               if (guest.companionName) onExpand();
               else onCheckIn(guest.id, false);
             }}
+            disabled={isProcessing}
             className="w-full h-10 rounded-full font-serif text-[0.6875rem] tracking-[0.15em] uppercase bg-foreground hover:bg-foreground/90"
           >
-            Confirmar {guest.name}
+            {isProcessing ? "A confirmar..." : `Confirmar ${guest.name}`}
           </Button>
         )}
       </div>
