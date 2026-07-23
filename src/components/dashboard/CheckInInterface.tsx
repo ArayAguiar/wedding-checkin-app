@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { QRScanner } from "@/components/QRScanner";
-import { Search, QrCode, Users, Undo2, LogOut } from "lucide-react";
+import { Search, QrCode, Users, Undo2, LogOut, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { checkInGuest, undoCheckIn } from "@/app/checkin/actions";
 
@@ -31,6 +31,7 @@ export default function CheckInInterface({ initialGuests }: CheckInInterfaceProp
   const [scannerActive, setScannerActive] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [checkingInId, setCheckingInId] = useState<string | null>(null);
+  const [confirmingUndoId, setConfirmingUndoId] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // ── Real-time updates + polling fallback ──
@@ -61,14 +62,11 @@ export default function CheckInInterface({ initialGuests }: CheckInInterfaceProp
         if (status === "SUBSCRIBED") realtimeConnected = true;
       });
 
-    // Polling fallback for unreliable venue Wi-Fi
     const pollInterval = setInterval(async () => {
       if (realtimeConnected) return;
-
       const { data, error } = await supabase
         .from("guests")
         .select("id, check_in, check_in_acomp");
-
       if (error || !data) return;
 
       setGuests((prev) =>
@@ -129,6 +127,7 @@ export default function CheckInInterface({ initialGuests }: CheckInInterfaceProp
   // ── Check-in / Undo ──
   const handleCheckIn = async (guestId: string, includeCompanion: boolean) => {
     if (checkingInId) return;
+    setConfirmingUndoId(null);
     const guest = guests.find((g) => g.id === guestId);
     if (!guest) return;
 
@@ -170,6 +169,13 @@ export default function CheckInInterface({ initialGuests }: CheckInInterfaceProp
     const guest = guests.find((g) => g.id === guestId);
     if (!guest) return;
 
+    if (confirmingUndoId !== guestId) {
+      setConfirmingUndoId(guestId);
+      setExpandedId(null);
+      return;
+    }
+
+    setConfirmingUndoId(null);
     setCheckingInId(guestId);
 
     setGuests((prev) =>
@@ -202,6 +208,7 @@ export default function CheckInInterface({ initialGuests }: CheckInInterfaceProp
       if (e.key === "Escape") {
         setScannerActive(false);
         setExpandedId(null);
+        setConfirmingUndoId(null);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -318,12 +325,14 @@ export default function CheckInInterface({ initialGuests }: CheckInInterfaceProp
                 key={guest.id}
                 guest={guest}
                 isExpanded={expandedId === guest.id}
-                onExpand={() =>
-                  setExpandedId(expandedId === guest.id ? null : guest.id)
-                }
+                onExpand={() => {
+                  setConfirmingUndoId(null);
+                  setExpandedId(expandedId === guest.id ? null : guest.id);
+                }}
                 onCheckIn={handleCheckIn}
                 onUndo={handleUndo}
                 checkingInId={checkingInId}
+                confirmingUndoId={confirmingUndoId}
               />
             ))
           )}
@@ -350,6 +359,7 @@ function GuestCard({
   onCheckIn,
   onUndo,
   checkingInId,
+  confirmingUndoId,
 }: {
   guest: Guest;
   isExpanded: boolean;
@@ -357,8 +367,10 @@ function GuestCard({
   onCheckIn: (id: string, includeCompanion: boolean) => void;
   onUndo: (id: string) => void;
   checkingInId: string | null;
+  confirmingUndoId: string | null;
 }) {
   const isProcessing = checkingInId === guest.id;
+  const isConfirmingUndo = confirmingUndoId === guest.id;
 
   const fullyChecked =
     guest.checkedIn && (!guest.companionName || guest.companionCheckedIn);
@@ -414,23 +426,43 @@ function GuestCard({
       {/* Actions */}
       <div className="mt-3">
         {fullyChecked ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onUndo(guest.id)}
-            disabled={isProcessing}
-            className="label text-muted-foreground hover:text-destructive transition-colors h-auto px-0"
-          >
-            <Undo2 className="w-3 h-3 inline mr-1" />
-            Desfazer
-          </Button>
-        ) : partiallyChecked ? (
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <div className="h-px flex-1 bg-border" />
-              <span className="label text-muted-foreground">ou</span>
-              <div className="h-px flex-1 bg-border" />
+          isConfirmingUndo ? (
+            <div className="space-y-3 pt-1">
+              <div className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="w-4 h-4" />
+                <span className="label">Desfazer check-in de {guest.name}?</span>
+              </div>
+              <Button
+                variant="destructive"
+                onClick={() => onUndo(guest.id)}
+                disabled={isProcessing}
+                className="w-full h-10 rounded-full font-serif text-[0.6875rem] tracking-[0.15em] uppercase"
+              >
+                {isProcessing ? "A desfazer..." : "Sim, desfazer"}
+              </Button>
+              <Button
+                variant="link"
+                size="sm"
+                onClick={onExpand}
+                className="label text-muted-foreground hover:text-foreground block mx-auto"
+              >
+                Cancelar
+              </Button>
             </div>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onUndo(guest.id)}
+              disabled={isProcessing}
+              className="label text-muted-foreground hover:text-destructive transition-colors h-auto px-0"
+            >
+              <Undo2 className="w-3 h-3 inline mr-1" />
+              Desfazer
+            </Button>
+          )
+        ) : partiallyChecked ? (
+          <div className="space-y-3">
             <Button
               onClick={() => onCheckIn(guest.id, true)}
               disabled={isProcessing}
@@ -440,19 +472,51 @@ function GuestCard({
                 ? "A confirmar..."
                 : `Confirmar ${guest.companionName}`}
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onUndo(guest.id)}
-              disabled={isProcessing}
-              className="label text-muted-foreground hover:text-destructive transition-colors h-auto px-0 block mx-auto"
-            >
-              <Undo2 className="w-3 h-3 inline mr-1" />
-              Desfazer
-            </Button>
+            {isConfirmingUndo ? (
+              <div className="space-y-3 pt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                <div className="flex items-center gap-2 text-destructive">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span className="label">Desfazer check-in?</span>
+                </div>
+                <Button
+                  variant="destructive"
+                  onClick={() => onUndo(guest.id)}
+                  disabled={isProcessing}
+                  className="w-full h-10 rounded-full font-serif text-[0.6875rem] tracking-[0.15em] uppercase"
+                >
+                  {isProcessing ? "A desfazer..." : "Sim, desfazer"}
+                </Button>
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={onExpand}
+                  className="label text-muted-foreground hover:text-foreground block mx-auto"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3">
+                <div className="flex items-center gap-3 w-full">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="label text-muted-foreground">ou</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onUndo(guest.id)}
+                  disabled={isProcessing}
+                  className="label text-muted-foreground hover:text-destructive transition-colors h-auto px-0"
+                >
+                  <Undo2 className="w-3 h-3 inline mr-1" />
+                  Desfazer
+                </Button>
+              </div>
+            )}
           </div>
         ) : isExpanded && guest.companionName ? (
-          <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
             <Button
               onClick={() => onCheckIn(guest.id, true)}
               disabled={isProcessing}
@@ -464,16 +528,15 @@ function GuestCard({
               variant="outline"
               onClick={() => onCheckIn(guest.id, false)}
               disabled={isProcessing}
-              className="w-full h-10 rounded-full font-serif text-[0.6875rem] tracking-[0.15em] uppercase border-border bg-transparent hover:bg-muted"
+              className="w-full h-10 rounded-full font-serif text-[0.6875rem] tracking-[0.15em] uppercase border-foreground/20 text-foreground hover:bg-muted bg-transparent"
             >
               {isProcessing ? "A confirmar..." : `Apenas ${guest.name}`}
             </Button>
             <Button
-              variant="ghost"
+              variant="link"
               size="sm"
               onClick={onExpand}
-              disabled={isProcessing}
-              className="label text-muted-foreground hover:text-foreground transition-colors h-auto px-0 block mx-auto"
+              className="label text-muted-foreground hover:text-foreground block mx-auto"
             >
               Cancelar
             </Button>

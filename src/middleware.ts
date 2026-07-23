@@ -29,11 +29,12 @@ export async function middleware(req: NextRequest) {
     }
   )
 
-  const { data: { session } } = await supabase.auth.getSession()
+  // FIX: getUser() validates the JWT with Supabase Auth server
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
 
   // Protect /checkin — must be logged in AND be staff
   if (req.nextUrl.pathname.startsWith("/checkin")) {
-    if (!session) {
+    if (userError || !user) {
       return NextResponse.redirect(new URL("/staff", req.url))
     }
 
@@ -41,7 +42,7 @@ export async function middleware(req: NextRequest) {
     const { data: staff } = await supabase
       .from("staff")
       .select("id")
-      .eq("email", session.user.email)
+      .eq("email", user.email)
       .single()
 
     if (!staff) {

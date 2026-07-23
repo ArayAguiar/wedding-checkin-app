@@ -9,24 +9,24 @@ export async function checkInGuest(
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
 
-  // 1. Verify session
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) {
+  // FIX: getUser() validates the JWT with Supabase Auth server
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  if (userError || !user) {
     return { success: false, error: "Unauthorized" }
   }
 
-  // 2. Verify staff role by email
+  // Verify staff role by email
   const { data: staff } = await supabase
     .from("staff")
     .select("id")
-    .eq("email", session.user.email)
+    .eq("email", user.email)
     .single()
 
   if (!staff) {
     return { success: false, error: "Not staff" }
   }
 
-  // 3. Perform check-in with staff audit
+  // Perform check-in with staff audit
   const updateData = includeCompanion
     ? { check_in: true, check_in_acomp: true, staff_id: staff.id }
     : { check_in: true, staff_id: staff.id }
@@ -50,15 +50,15 @@ export async function undoCheckIn(
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
 
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) {
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  if (userError || !user) {
     return { success: false, error: "Unauthorized" }
   }
 
   const { data: staff } = await supabase
     .from("staff")
     .select("id")
-    .eq("email", session.user.email)
+    .eq("email", user.email)
     .single()
 
   if (!staff) {

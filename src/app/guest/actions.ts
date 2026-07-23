@@ -4,7 +4,6 @@
 import { createClient } from "@/lib/supabase/server"
 
 interface Guest {
-  id: string
   nome: string
   acompanhante?: string
   mesa?: string
@@ -33,18 +32,18 @@ export async function lookupGuest(accessCode: string): Promise<{
 
   const { data, error } = await supabase
     .from("guests")
-    .select("id, nome, acompanhante, mesa, codigo_acesso, check_in")
+    .select("nome, acompanhante, mesa, codigo_acesso, check_in")
     .eq("codigo_acesso", code)
-    .single()
+    .limit(1)
 
   if (error) {
     console.error("Supabase error:", error)
     return { success: false, error: "server-error" }
   }
 
-  if (!data) {
+  if (!data || data.length === 0) {
     return { success: false, error: "not-found" }
   }
 
-  return { success: true, guest: data as Guest }
+  return { success: true, guest: data[0] as Guest }
 }
